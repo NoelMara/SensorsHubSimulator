@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="ino">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a1118">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Sensors:Hub lets you wire, test, and monitor ESP32 and Pico sensor projects in one polished simulator workspace.">
+<link rel="shortcut icon" href="sensorshub_logo.png" type="image/png">
+<title>SensorsHub: University of Eastern Pangasinan</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/python/python.min.js"></script>
+<link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+
+<!-- ============================================================
+     TOOLBAR
+     ============================================================ -->
+<div id="toolbar">
+  <div class="brand-block">
+    <div class="brand-badge">University of Eastern Pangasinan</div>
+     <a href="https://sensorshubv1.onrender.com/" class="logo">
+      Sensors<span>:Hub</span>
+    </a>
+  </div>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="btn active" id="btn-wire" onclick="setTool('wire')" title="Wire (W)">
+    <span>〰</span><span class="btn-label">Wire</span>
+  </button>
+  <button class="btn" id="btn-move" onclick="setTool('move')" title="Move (M)">
+    <span>✥</span><span class="btn-label">Move</span>
+  </button>
+  <button class="btn red" id="btn-delete" onclick="setTool('delete')" title="Delete (D)">
+    <span>✕</span><span class="btn-label">Delete</span>
+  </button>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="btn yellow" onclick="undo()" title="Undo (Ctrl+Z)">
+    <span>↩</span><span class="btn-label">Undo</span>
+  </button>
+  <button class="btn" onclick="clearAll()" title="Clear all">
+    <span>🗑</span><span class="btn-label">Clear</span>
+  </button>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="btn green" onclick="runCode()" title="Run simulation">
+    <span>▶</span><span class="btn-label">Run</span>
+  </button>
+  <button class="btn red" onclick="stopCode()" title="Stop simulation">
+    <span>■</span><span class="btn-label">Stop</span>
+  </button>
+  <button class="btn" onclick="toggleSerial()" title="Serial monitor">
+    <span>⌨</span><span class="btn-label">Serial</span>
+  </button>
+  <button class="btn" id="btn-toggle-code" onclick="toggleCodePanel()" title="Toggle editor">
+    <span>{ }</span><span class="btn-label">Editor</span>
+  </button>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="btn help-btn" id="btn-help" onclick="openHelp()" title="Help &amp; Guide">
+    <span class="help-btn-icon">?</span><span class="btn-label">Help</span>
+  </button>
+
+  <div id="status">Ready</div>
+</div>
+
+<!-- ============================================================
+     MOBILE TAB BAR  — 2 tabs (Parts tab removed)
+     ============================================================ -->
+<div id="mobile-tab-bar">
+  <div class="mob-tab active" id="mob-sim-tab" onclick="mobileTab('sim')">
+    <span class="mob-icon">🔌</span>
+    <span>Studio</span>
+  </div>
+  <div class="mob-tab" id="mob-code-tab" onclick="mobileTab('code')">
+    <span class="mob-icon">{ }</span>
+    <span>Code</span>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP
+     ============================================================ -->
+<div id="app">
+  <div id="main-container">
+
+    <!-- ── CODE PANEL ── -->
+    <div id="code-panel">
+      <div id="code-header">
+        <div class="lang-toggle-wrap">
+          <span class="lang-label lang-active" id="lang-label-ino">Arduino</span>
+          <div class="lang-toggle" id="lang-toggle" onclick="toggleLang()" title="Switch language">
+            <div class="lang-toggle-thumb" id="lang-toggle-thumb"></div>
+          </div>
+          <span class="lang-label" id="lang-label-py">MicroPython</span>
+        </div>
+        <div id="mode-badge">Arduino .ino</div>
+      </div>
+
+      <div id="code-editor">
+        <textarea id="code-textarea" spellcheck="false" autocomplete="off"
+                  autocorrect="off" autocapitalize="off"
+                  placeholder="// Write your Arduino sketch here..."></textarea>
+        <div id="cm-host"></div>
+
+        <div id="code-buttons">
+          <button class="btn green" onclick="runCode()">▶ Run</button>
+          <button class="btn red"   onclick="stopCode()">■ Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SIM PANEL ── -->
+    <div id="sim-panel">
+      <div id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+        <canvas id="spark-canvas"></canvas>
+
+        <div id="comp-tooltip"></div>
+        <div id="zoom-badge">100%</div>
+
+        <div id="conn-alert" class="conn-alert hidden">
+          <span id="conn-alert-text"></span>
+          <span class="conn-close" onclick="hideConnAlert()">✕</span>
+        </div>
+
+        <div id="serial-monitor">
+          <div class="serial-header">
+            <span class="serial-title">SENSORS:HUB SERIAL</span>
+            <span class="serial-close" onclick="toggleSerial()">✕</span>
+          </div>
+          <div id="serial-output"></div>
+          <div id="serial-input-row">
+            <input type="text" id="serial-input" autocomplete="off"
+                   placeholder="Type command or sketch input..."
+                   onkeypress="if(event.key==='Enter')sendSerial()">
+            <button id="serial-send" onclick="sendSerial()">SEND</button>
+          </div>
+        </div>
+
+        <div id="wire-tip-toast" class="wire-tip-toast hidden">
+          💡 Drag a wire midpoint to bend it · Double-click a bend to remove it
+          <span class="wire-tip-close" onclick="dismissWireTip()">✕</span>
+        </div>
+      </div>
+
+      <!-- ── COMPONENT PALETTE ── -->
+      <div id="palette-wrapper">
+        <div id="palette-toggle" onclick="togglePalette()">
+          <div class="palette-toggle-main">
+            <span id="palette-arrow">▾</span>
+            <div class="palette-heading">
+              <span class="palette-kicker">Build Kit</span>
+              <span class="palette-title">Component Library</span>
+              <span class="palette-subtitle">Drag components onto the canvas to get started</span>
+            </div>
+          </div>
+          <span id="palette-open-label">▾ Open</span>
+        </div>
+
+        <div id="palette-body">
+          <div id="palette-cats">
+            <div class="cat-tab active" data-cat="mcu"         onclick="switchCat('mcu')">🖥 Microcontrollers</div>
+            <div class="cat-tab"        data-cat="lights"      onclick="switchCat('lights')">💡 Lights</div>
+            <div class="cat-tab"        data-cat="sensors"     onclick="switchCat('sensors')">📡 Sensors</div>
+            <div class="cat-tab"        data-cat="peripherals" onclick="switchCat('peripherals')">🔧 Peripherals</div>
+          </div>
+
+          <div id="component-palette">
+            <!-- MCU -->
+            <div class="comp-item" data-cat="mcu" onclick="addComponent('esp32')">
+              <span class="comp-icon">💻</span><span class="comp-name">ESP32</span>
+            </div>
+            <div class="comp-item" data-cat="mcu" onclick="addComponent('pico')">
+              <span class="comp-icon">🫐</span><span class="comp-name">Pico</span>
+            </div>
+            <!-- Lights -->
+            <div class="comp-item" data-cat="lights" onclick="addComponent('led_red')"    style="display:none"><span class="comp-icon">🔴</span><span class="comp-name">Red LED</span></div>
+            <div class="comp-item" data-cat="lights" onclick="addComponent('led_green')"  style="display:none"><span class="comp-icon">🟢</span><span class="comp-name">Green LED</span></div>
+            <div class="comp-item" data-cat="lights" onclick="addComponent('led_blue')"   style="display:none"><span class="comp-icon">🔵</span><span class="comp-name">Blue LED</span></div>
+            <div class="comp-item" data-cat="lights" onclick="addComponent('led_yellow')" style="display:none"><span class="comp-icon">🟡</span><span class="comp-name">Yellow LED</span></div>
+            <!-- Sensors -->
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('ultrasonic')" style="display:none"><span class="comp-icon">📡</span><span class="comp-name">HC-SR04</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('dht')"        style="display:none"><span class="comp-icon">🌡️</span><span class="comp-name">DHT22</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('pir')"        style="display:none"><span class="comp-icon">🚨</span><span class="comp-name">PIR</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('ldr')"        style="display:none"><span class="comp-icon">🌞</span><span class="comp-name">LDR</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('button')"     style="display:none"><span class="comp-icon">🔘</span><span class="comp-name">Button</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('joystick')"   style="display:none"><span class="comp-icon">🕹️</span><span class="comp-name">Joystick</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('ky004')"      style="display:none"><span class="comp-icon">🎛️</span><span class="comp-name">KY-004</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('sw420')"      style="display:none"><span class="comp-icon">📳</span><span class="comp-name">SW-420</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('flame')" style="display:none"><span class="comp-icon">🔥</span><span class="comp-name">Flame Sensor</span>
+</div> 
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('ky032')" style="display:none"><span class="comp-icon">🚧</span><span class="comp-name">KY-032</span>
+</div>
+
+            <!-- Peripherals -->
+            <div class="comp-item" data-cat="peripherals" onclick="addComponent('servo')"   style="display:none"><span class="comp-icon">⚙️</span><span class="comp-name">Servo</span></div>
+            <div class="comp-item" data-cat="peripherals" onclick="addComponent('buzzer')"  style="display:none"><span class="comp-icon">🔔</span><span class="comp-name">Buzzer</span></div>
+            <div class="comp-item" data-cat="peripherals" onclick="addComponent('ssd1306')" style="display:none"><span class="comp-icon">📟</span><span class="comp-name">OLED</span></div>
+          </div>
+        </div>
+      </div><!-- /palette-wrapper -->
+
+    </div><!-- /sim-panel -->
+
+  </div><!-- /main-container -->
+</div><!-- /app -->
+
+<!-- ============================================================
+     HELP MODAL
+     ============================================================ -->
+<div id="help-root"></div>
+
+<!-- ============================================================
+     SCRIPTS
+     ============================================================ -->
+<script src="drawing.js"></script>
+<script src="components.js"></script>
+<script src="interaction.js"></script>
+<script src="LibraryRegistry.js"></script>
+<script src="libraries/DHT.js"></script>
+<script src="libraries/Wire.js"></script>
+<script src="libraries/SSD1306.js"></script>
+<script src="libraries/Servo.js"></script>
+<script src="simulator.js"></script>
+<script src="helpTemplate.js"></script>
+<script src="helpModal.js"></script>
+
+<script>
+/* ============================================================
+   TEMPLATES
+   ============================================================ */
+var _inoTemplate = `#define LED_PIN 2
+
+void setup() {
+  pinMode(LED_PIN, OUTPUT);
+  Serial.begin(115200);
+}
+
+void loop() {
+  digitalWrite(LED_PIN, HIGH);
+  delay(500);
+  digitalWrite(LED_PIN, LOW);
+  delay(500);
+  Serial.println("Blink!");
+}`;
+
+var _pyTemplate = `from machine import Pin
+import time
+
+led = Pin(2, Pin.OUT)
+
+while True:
+    led.on()
+    time.sleep(0.5)
+    led.off()
+    time.sleep(0.5)
+    print("Blink!")`;
+
+/* ============================================================
+   GLOBALS
+   ============================================================ */
+var editor = null;
+window.fileMode = 'ino';
+var _savedContent = { ino: '', py: '' };
+var _connAlertTimer = null;
+
+function safeResizeCanvas() {
+  if (typeof resizeCanvas === 'function') resizeCanvas();
+}
+
+function setEditorContent(content, placeholder) {
+  var ta = document.getElementById('code-textarea');
+  if (ta && placeholder) ta.placeholder = placeholder;
+  if (editor) { editor.setValue(content); }
+  if (ta) { ta.value = content; }
+}
+
+/* ============================================================
+   CODEMIRROR INIT
+   ============================================================ */
+(function initCodeMirror() {
+  var host = document.getElementById('cm-host');
+  if (typeof CodeMirror === 'undefined' || !host) return;
+
+  editor = CodeMirror(host, {
+    value: _inoTemplate,
+    mode: 'text/x-c++src',
+    theme: 'default',
+    lineNumbers: true,
+    indentUnit: 2,
+    tabSize: 2,
+    indentWithTabs: false,
+    lineWrapping: false,
+    autofocus: false,
+    extraKeys: {
+      'Tab': function(cm) { cm.replaceSelection('  ', 'end'); }
+    }
+  });
+
+  editor.on('change', function() {
+    var ta = document.getElementById('code-textarea');
+    if (ta) ta.value = editor.getValue();
+  });
+
+  var ta = document.getElementById('code-textarea');
+  if (ta) ta.value = editor.getValue();
+  editor.setSize('100%', '100%');
+})();
+
+function getCode() {
+  return editor
+    ? editor.getValue()
+    : document.getElementById('code-textarea').value;
+}
+
+/* ============================================================
+   MODE THEME
+   ============================================================ */
+function applyModeTheme(mode) {
+  document.documentElement.setAttribute('data-mode', mode);
+  var badge = document.getElementById('mode-badge');
+  if (badge) {
+    badge.textContent = mode === 'ino' ? 'Arduino .ino' : 'MicroPython .py';
+  }
+}
+applyModeTheme('ino');
+
+/* ============================================================
+   LANGUAGE TOGGLE
+   ============================================================ */
+function toggleLang() {
+  var thumb = document.getElementById('lang-toggle-thumb');
+  var lino  = document.getElementById('lang-label-ino');
+  var lpy   = document.getElementById('lang-label-py');
+
+  if (typeof running !== 'undefined' && running && typeof stopCode === 'function') {
+    stopCode();
+  }
+
+  _savedContent[window.fileMode] = getCode();
+
+  if (window.fileMode === 'ino') {
+    window.fileMode = 'py';
+    if (thumb) thumb.style.transform = 'translateX(22px)';
+    if (lino) lino.classList.remove('lang-active');
+    if (lpy)  lpy.classList.add('lang-active');
+    var pyContent = _savedContent.py || _pyTemplate;
+    if (editor) editor.setOption('mode', 'python');
+    setEditorContent(pyContent, '# Write your MicroPython script here...');
+    applyModeTheme('py');
+    updateStatus('Mode: MicroPython (.py)');
+  } else {
+    window.fileMode = 'ino';
+    if (thumb) thumb.style.transform = 'translateX(0px)';
+    if (lpy)  lpy.classList.remove('lang-active');
+    if (lino) lino.classList.add('lang-active');
+    var inoContent = _savedContent.ino || _inoTemplate;
+    if (editor) editor.setOption('mode', 'text/x-c++src');
+    setEditorContent(inoContent, '// Write your Arduino sketch here...');
+    applyModeTheme('ino');
+    updateStatus('Mode: Arduino (.ino)');
+  }
+
+  if (editor) {
+    setTimeout(function() { editor.refresh(); }, 50);
+  }
+}
+
+/* ============================================================
+   COMPONENT PALETTE CATEGORIES
+   ============================================================ */
+var currentCat = 'mcu';
+function switchCat(cat) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-tab').forEach(function(t) {
+    t.classList.toggle('active', t.dataset.cat === cat);
+  });
+  document.querySelectorAll('.comp-item').forEach(function(item) {
+    var show = item.dataset.cat === cat;
+    item.style.display = show ? '' : 'none';
+    if (show) {
+      item.style.animation = 'none';
+      item.offsetHeight; /* reflow */
+      item.style.animation = 'compFadeIn 0.22s ease both';
+    }
+  });
+}
+switchCat('mcu');
+
+/* ============================================================
+   CODE PANEL TOGGLE
+   ============================================================ */
+function toggleCodePanel() {
+  document.getElementById('code-panel').classList.toggle('collapsed');
+  setTimeout(function() { safeResizeCanvas(); if (editor) editor.refresh(); }, 10);
+  setTimeout(function() { safeResizeCanvas(); if (editor) editor.refresh(); }, 340);
+}
+
+/* ============================================================
+   MOBILE TABS  (2 tabs: sim + code)
+   ============================================================ */
+function mobileTab(tab) {
+  var codePanel = document.getElementById('code-panel');
+  var simPanel  = document.getElementById('sim-panel');
+  var simTab    = document.getElementById('mob-sim-tab');
+  var codeTab   = document.getElementById('mob-code-tab');
+
+  [simTab, codeTab].forEach(function(t) { if (t) t.classList.remove('active'); });
+
+  if (tab === 'code') {
+    codePanel.classList.add('mobile-active');
+    simPanel.classList.add('mobile-hidden');
+    if (codeTab) codeTab.classList.add('active');
+    setTimeout(function() { if (editor) editor.refresh(); }, 80);
+
+  } else { /* sim */
+    codePanel.classList.remove('mobile-active');
+    simPanel.classList.remove('mobile-hidden');
+    if (simTab) simTab.classList.add('active');
+    setTimeout(function() {
+      if (typeof syncSparkCanvas === 'function') syncSparkCanvas();
+      if (typeof resizeCanvas === 'function') resizeCanvas();
+    }, 30);
+  }
+}
+
+/* ============================================================
+   CONNECTION ALERT
+   ============================================================ */
+function hideConnAlert() {
+  var el = document.getElementById('conn-alert');
+  if (el) el.classList.add('hidden');
+}
+
+function showConnAlert(msg) {
+  var el   = document.getElementById('conn-alert');
+  var text = document.getElementById('conn-alert-text');
+  if (!el || !text) return;
+  text.textContent = 'Warning: ' + msg;
+  el.classList.remove('hidden');
+  if (_connAlertTimer) clearTimeout(_connAlertTimer);
+  _connAlertTimer = setTimeout(function() {
+    el.classList.add('hidden');
+    _connAlertTimer = null;
+  }, 5000);
+}
+
+function showRuntimeError(msg) {
+  var el   = document.getElementById('conn-alert');
+  var text = document.getElementById('conn-alert-text');
+  if (!el || !text) return;
+  text.textContent = 'Error: ' + msg;
+  el.classList.remove('hidden');
+  if (_connAlertTimer) clearTimeout(_connAlertTimer);
+  _connAlertTimer = setTimeout(function() {
+    el.classList.add('hidden');
+    _connAlertTimer = null;
+  }, 5000);
+}
+
+/* ============================================================
+   WIRE TIP TOAST
+   ============================================================ */
+var _wireTipShown = false;
+function showWireTipOnce() {
+  if (_wireTipShown) return;
+  _wireTipShown = true;
+  var toast = document.getElementById('wire-tip-toast');
+  if (!toast) return;
+  toast.classList.remove('hidden');
+  toast.classList.add('visible');
+  setTimeout(dismissWireTip, 5000);
+}
+
+function dismissWireTip() {
+  var toast = document.getElementById('wire-tip-toast');
+  if (!toast) return;
+  toast.classList.remove('visible');
+  setTimeout(function() { toast.classList.add('hidden'); }, 400);
+}
+
+/* ============================================================
+   DOM READY
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
+  var simCanvas = document.getElementById('simCanvas');
+  if (simCanvas) {
+    var fired = false;
+    function tryTip() {
+      var wireBtn = document.getElementById('btn-wire');
+      if (fired || !wireBtn) return;
+      if (wireBtn.classList.contains('active')) {
+        fired = true;
+        setTimeout(showWireTipOnce, 400);
+      }
+    }
+    simCanvas.addEventListener('mouseup', tryTip);
+    simCanvas.addEventListener('touchend', tryTip);
+  }
+
+  if (typeof applyPaletteUIState === 'function') applyPaletteUIState();
+  if (typeof syncSparkCanvas === 'function')     syncSparkCanvas();
+  if (typeof initTooltip === 'function')         initTooltip();
+  safeResizeCanvas();
+});
+
+/* ============================================================
+   BUTTON RIPPLE
+   ============================================================ */
+document.querySelectorAll('.btn').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    var r    = document.createElement('span');
+    var rect = btn.getBoundingClientRect();
+    r.className  = 'btn-ripple';
+    r.style.left = (e.clientX - rect.left) + 'px';
+    r.style.top  = (e.clientY - rect.top)  + 'px';
+    btn.appendChild(r);
+    setTimeout(function() { r.remove(); }, 600);
+  });
+});
+
+/* ============================================================
+   SIM RUN / STOP TOOLBAR STATE
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
+  var toolbar  = document.getElementById('toolbar');
+  var statusEl = document.getElementById('status');
+
+  document.addEventListener('sim:run', function() {
+    if (!toolbar || !statusEl) return;
+    toolbar.classList.remove('sim-stopped');
+    toolbar.classList.add('sim-running');
+    statusEl.classList.remove('status-stopped');
+    statusEl.classList.add('status-running');
+  });
+
+  document.addEventListener('sim:stop', function() {
+    if (!toolbar || !statusEl) return;
+    toolbar.classList.remove('sim-running');
+    toolbar.classList.add('sim-stopped');
+    statusEl.classList.remove('status-running');
+    statusEl.classList.add('status-stopped');
+    setTimeout(function() {
+      toolbar.classList.remove('sim-stopped');
+      statusEl.classList.remove('status-stopped');
+    }, 2000);
+  });
+
+  var _origRun  = window.runCode;
+  var _origStop = window.stopCode;
+
+  window.runCode = function() {
+    _origRun && _origRun.apply(this, arguments);
+    if (typeof running !== 'undefined' && running) {
+      document.dispatchEvent(new CustomEvent('sim:run'));
+    } else {
+      document.dispatchEvent(new CustomEvent('sim:stop'));
+    }
+  };
+
+  window.stopCode = function() {
+    _origStop && _origStop.apply(this, arguments);
+    if (typeof running === 'undefined' || !running) {
+      document.dispatchEvent(new CustomEvent('sim:stop'));
+    }
+  };
+});
+
+/* ============================================================
+   WIRE SPARK ON CONNECT
+   ============================================================ */
+(function() {
+  var _lastCount = 0;
+  setInterval(function() {
+    if (typeof wires === 'undefined' || typeof spawnSpark !== 'function') return;
+    if (wires.length > _lastCount) {
+      var w = wires[wires.length - 1];
+      if (w) {
+        var c = w.color || '#4d9fff';
+        spawnSpark(w.x2, w.y2, c);
+        setTimeout(function() { spawnSpark(w.x1, w.y1, c); }, 60);
+      }
+    }
+    _lastCount = wires.length;
+  }, 50);
+})();
+
+/* ============================================================
+   RESIZE
+   ============================================================ */
+window.addEventListener('resize', function() {
+  if (typeof syncSparkCanvas === 'function') syncSparkCanvas();
+});
+
+/* ============================================================
+   STATUS TYPEWRITER
+   ============================================================ */
+(function() {
+  var el = document.getElementById('status');
+  if (!el) return;
+  var _timer = null;
+
+  function typewrite(msg) {
+    if (_timer) clearInterval(_timer);
+    el.textContent = '';
+    var i = 0;
+    var chars = String(msg).split('');
+    _timer = setInterval(function() {
+      if (i < chars.length) {
+        el.textContent += chars[i++];
+      } else {
+        clearInterval(_timer);
+        _timer = null;
+      }
+    }, 32);
+  }
+
+  var _origUpdate = window.updateStatus;
+  window.updateStatus = function(msg) {
+    _origUpdate && _origUpdate.apply(this, arguments);
+    typewrite(msg);
+  };
+
+  setTimeout(function() { typewrite('Ready'); }, 700);
+})();
+</script>
+</body>
+</html>
