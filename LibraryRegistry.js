@@ -85,6 +85,7 @@ class LibraryRegistry {
 
       if (instance) {
         return {
+          instanceName,
           instance,
           methodName,
           args: this._parseArgs(argsStr),
@@ -103,6 +104,7 @@ class LibraryRegistry {
 
       if (instance) {
         return {
+          instanceName,
           instance,
           methodName,
           args: this._parseArgs(argsStr),

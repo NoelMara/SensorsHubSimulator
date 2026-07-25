@@ -20,6 +20,7 @@ let serialLineBuffer = '';
 let serialRxBuffer = [];
 let runtimeMode = 'ino';
 let microPythonRuntime = null;
+let simulatorTryCatchDepth = 0;
 
 const REQUIRED_PINS = {
   led:        ['+', '-'],
@@ -867,6 +868,75 @@ function handleRuntimeError(err) {
   }
 }
 
+function makeSimulatorRuntimeError(message, details) {
+  var err = new Error(message || 'Simulator runtime error');
+  err.name = 'SimulatorRuntimeError';
+  err.isSimulatorRuntimeError = true;
+  if (details) {
+    for (var k in details) err[k] = details[k];
+  }
+  return err;
+}
+
+function isCatchableSimulatorError(err) {
+  return !!(
+    err &&
+    (
+      err.isSimulatorRuntimeError ||
+      err.name === 'SimulatorRuntimeError' ||
+      err.name === 'OSError'
+    )
+  );
+}
+
+function requireResolvedPin(pin, action, source) {
+  if (pin === null || pin === undefined || Number.isNaN(pin)) {
+    throw makeSimulatorRuntimeError((action || 'Pin action') + ': invalid pin ' + String(source || '').trim());
+  }
+  return pin;
+}
+
+function getLibraryCallName(mc) {
+  return (mc && mc.instanceName ? mc.instanceName : 'component') + '.' + (mc && mc.methodName ? mc.methodName : 'method') + '()';
+}
+
+function isCatchableLibraryFailureResult(mc, result) {
+  if (!mc) return false;
+  if (typeof result === 'number' && Number.isNaN(result)) {
+    return simulatorTryCatchDepth > 0 && /^(readTemperature|readHumidity|computeHeatIndex)$/i.test(mc.methodName);
+  }
+  if (result === false) {
+    return simulatorTryCatchDepth > 0 && /^begin$/i.test(mc.methodName);
+  }
+  return false;
+}
+
+function invokeLibraryMethodCall(mc) {
+  var callName = getLibraryCallName(mc);
+  if (!mc || !mc.instance) {
+    throw makeSimulatorRuntimeError('Component instance not found for ' + callName);
+  }
+
+  var fn = mc.instance[mc.methodName];
+  if (typeof fn !== 'function') {
+    throw makeSimulatorRuntimeError('Unsupported component action: ' + callName);
+  }
+
+  var resolvedArgs = mc.args.map(resolveLibraryArgValue);
+  var result;
+  try {
+    result = fn.apply(mc.instance, resolvedArgs);
+  } catch (err) {
+    if (isCatchableSimulatorError(err)) throw err;
+    throw makeSimulatorRuntimeError(callName + ' failed: ' + formatRuntimeError(err), { cause: err });
+  }
+
+  if (isCatchableLibraryFailureResult(mc, result)) {
+    throw makeSimulatorRuntimeError(callName + ' failed');
+  }
+
+  return result;
+}
 // ==========================================
 // CONDITION EVALUATOR
 // ==========================================
@@ -958,6 +1028,15 @@ function executeStructuredLines(sourceLines, phase) {
 
     if (l === 'return' || l.startsWith('return ') || l.startsWith('return;')) {
       break;
+    }
+
+    if (/^try\s*\{?\s*$/.test(l)) {
+      const consumed = handleTryBlock(i, sourceLines, phase);
+      if (consumed > 0) {
+        i += consumed;
+        if (isDelayActive) break;
+        continue;
+      }
     }
 
     if (/^if\s*\(/.test(l)) {
@@ -1060,6 +1139,89 @@ function handleIfBlock(startIdx, sourceLines, phase) {
   return i - startIdx;
 }
 
+function isTryStartLine(line) {
+  return /^try\s*\{?\s*$/.test(String(line || '').trim());
+}
+
+function isCatchStartLine(line) {
+  return /^}\s*catch\s*\([^)]*\)\s*\{?\s*$/.test(String(line || '').trim()) ||
+    /^catch\s*\([^)]*\)\s*\{?\s*$/.test(String(line || '').trim());
+}
+
+function isStandaloneClosingBraceLine(line) {
+  var l = String(line || '').trim();
+  return l === '}' || l === '};';
+}
+
+function collectStructuredBlockBody(sourceLines, headerIdx) {
+  var bodyLines = [];
+  var i = headerIdx + 1;
+  var depth = 0;
+
+  while (i < sourceLines.length) {
+    var bl = String(sourceLines[i] || '').trim();
+
+    if (depth === 0 && isCatchStartLine(bl)) break;
+
+    if (depth === 0 && isStandaloneClosingBraceLine(bl)) {
+      i++;
+      break;
+    }
+
+    var opens = (bl.match(/\{/g) || []).length;
+    var closes = (bl.match(/\}/g) || []).length;
+    depth += opens - closes;
+
+    if (bl !== '{' && bl !== '}') bodyLines.push(bl);
+    i++;
+  }
+
+  return { bodyLines: bodyLines, nextIdx: i };
+}
+
+function findNextExecutableLine(sourceLines, idx) {
+  var i = idx;
+  while (i < sourceLines.length) {
+    var l = String(sourceLines[i] || '').trim();
+    if (l && !l.startsWith('//')) break;
+    i++;
+  }
+  return i;
+}
+
+function handleTryBlock(startIdx, sourceLines, phase) {
+  if (!isTryStartLine(sourceLines[startIdx])) return 0;
+
+  var tryBlock = collectStructuredBlockBody(sourceLines, startIdx);
+  var catchIdx = findNextExecutableLine(sourceLines, tryBlock.nextIdx);
+  var catchLines = [];
+  var endIdx = tryBlock.nextIdx;
+  var hasCatch = false;
+
+  if (catchIdx < sourceLines.length && isCatchStartLine(sourceLines[catchIdx])) {
+    hasCatch = true;
+    var catchBlock = collectStructuredBlockBody(sourceLines, catchIdx);
+    catchLines = catchBlock.bodyLines;
+    endIdx = catchBlock.nextIdx;
+  }
+
+  try {
+    simulatorTryCatchDepth++;
+    executeStructuredLines(tryBlock.bodyLines, phase);
+  } catch (err) {
+    if (!hasCatch || !isCatchableSimulatorError(err)) throw err;
+    executeStructuredLines(catchLines, phase);
+  } finally {
+    simulatorTryCatchDepth--;
+  }
+
+  if (isDelayActive) {
+    delayAdvance = endIdx - startIdx;
+    delayPhase = phase;
+  }
+
+  return endIdx - startIdx;
+}
 function evaluateMath(expr) {
   expr = String(expr || '').trim().replace(/;$/, '');
   let e = normalizeEvaluatorExpression(expr);
@@ -1922,6 +2084,15 @@ function tick() {
         return;
       }
 
+      if (/^try\s*\{?\s*$/.test(l)) {
+        const consumed = handleTryBlock(currentSetupLineIndex, setupLines, 'setup');
+        if (consumed > 0) {
+          if (!isDelayActive) currentSetupLineIndex += consumed;
+          if (typeof draw === 'function') draw();
+          return;
+        }
+      }
+
       if (/^if\s*\(/.test(l)) {
         const consumed = handleIfBlock(currentSetupLineIndex, setupLines, 'setup');
         if (consumed > 0) {
@@ -1950,6 +2121,15 @@ function tick() {
     if (l === 'return' || l === 'return;') {
       currentLineIndex = loopLines.length;
       return;
+    }
+
+    if (/^try\s*\{?\s*$/.test(l)) {
+      const consumed = handleTryBlock(currentLineIndex, loopLines, 'loop');
+      if (consumed > 0) {
+        if (!isDelayActive) currentLineIndex += consumed;
+        if (typeof draw === 'function') draw();
+        return;
+      }
     }
 
     if (/^if\s*\(/.test(l)) {
@@ -2056,7 +2236,7 @@ function executeLineWithDelay(line, phase) {
 
   const pmM = l.match(/^pinMode\s*\(\s*(.+?)\s*,\s*(INPUT|OUTPUT|INPUT_PULLUP)\s*\)$/i);
   if (pmM) {
-    const pin = resolvePin(pmM[1]);
+    const pin = requireResolvedPin(resolvePin(pmM[1]), 'pinMode', pmM[1]);
     setPinModeValue(pin, pmM[2]);
     return true;
   }
@@ -2182,7 +2362,7 @@ function executeLineWithDelay(line, phase) {
 
   const dwM = l.match(/^digitalWrite\s*\(\s*(.+?)\s*,\s*(HIGH|LOW|1|0|true|false|\w+)\s*\)$/i);
   if (dwM) {
-    const pin = resolvePin(dwM[1]);
+    const pin = requireResolvedPin(resolvePin(dwM[1]), 'digitalWrite', dwM[1]);
     if (pin !== null) {
       const val = dwM[2] === 'HIGH' || dwM[2] === '1' || dwM[2] === 'true'
         ? true
@@ -2198,28 +2378,28 @@ function executeLineWithDelay(line, phase) {
   //Digital Read
   const drM = l.match(/^(?:(?:int|bool|byte)\s+)?(\w+)\s*=\s*digitalRead\s*\(\s*(.+?)\s*\)$/i);
   if (drM) {
-    const pin = resolvePin(drM[2]);
-    variables[drM[1]] = pin !== null ? readDigitalPinValue(pin) : 0;
+    const pin = requireResolvedPin(resolvePin(drM[2]), 'digitalRead', drM[2]);
+    variables[drM[1]] = readDigitalPinValue(pin);
     return true;
   }
 
   const pulseM = l.match(/^(?:(?:unsigned\s+long|long|int|float)\s+)?(\w+)\s*=\s*pulseIn\s*\(\s*(.+?)\s*,\s*\w+\s*\)$/i);
   if (pulseM) {
-    const pin = resolvePin(pulseM[2]);
-    variables[pulseM[1]] = pin !== null ? getUltrasonicPulseDuration(pin, 1) : 0;
+    const pin = requireResolvedPin(resolvePin(pulseM[2]), 'pulseIn', pulseM[2]);
+    variables[pulseM[1]] = getUltrasonicPulseDuration(pin, 1);
     return true;
   }
 
   const arM = l.match(/^(?:(?:int|float|long)\s+)?(\w+)\s*=\s*analogRead\s*\(\s*(.+?)\s*\)$/i);
   if (arM) {
-    const pin = resolvePin(arM[2]);
-    variables[arM[1]] = pin !== null ? readAnalogPinValue(pin, 4095) : 0;
+    const pin = requireResolvedPin(resolvePin(arM[2]), 'analogRead', arM[2]);
+    variables[arM[1]] = readAnalogPinValue(pin, 4095);
     return true;
   }
 
   const awM = l.match(/^(?:analogWrite|ledcWrite)\s*\(\s*(.+?)\s*,\s*(.+?)\s*\)$/i);
   if (awM) {
-    const pin = resolvePin(awM[1]);
+    const pin = requireResolvedPin(resolvePin(awM[1]), 'analogWrite', awM[1]);
     if (pin !== null) {
       const val = parseFloat(parseValue(awM[2]));
       writePWMValue(pin, val, 255, 50);
@@ -2229,7 +2409,7 @@ function executeLineWithDelay(line, phase) {
 
   const toneM = l.match(/^tone\s*\(\s*(.+?)\s*,\s*(.+?)(?:\s*,\s*.+?)?\s*\)$/i);
   if (toneM) {
-    const pin = resolvePin(toneM[1]);
+    const pin = requireResolvedPin(resolvePin(toneM[1]), 'tone', toneM[1]);
     if (pin !== null) {
       var toneFreq = evaluateMath(toneM[2]);
       if (toneFreq === null) toneFreq = parseFloat(parseValue(toneM[2]));
@@ -2240,7 +2420,7 @@ function executeLineWithDelay(line, phase) {
 
   const noToneM = l.match(/^noTone\s*\(\s*(.+?)\s*\)$/i);
   if (noToneM) {
-    const pin = resolvePin(noToneM[1]);
+    const pin = requireResolvedPin(resolvePin(noToneM[1]), 'noTone', noToneM[1]);
     if (pin !== null) {
       applyBuzzerState(pin, false, 0);
     }
@@ -2259,11 +2439,8 @@ function executeLineWithDelay(line, phase) {
     if (typeof libraryRegistry !== 'undefined') {
       const mc = libraryRegistry.parseMethodCall(l);
       if (mc) {
-        try {
-          const resolvedArgs = mc.args.map(resolveLibraryArgValue);
-          const result = mc.instance[mc.methodName](...resolvedArgs);
-          if (mc.resultVariable) variables[mc.resultVariable] = result;
-        } catch (e) {}
+        const result = invokeLibraryMethodCall(mc);
+        if (mc.resultVariable) variables[mc.resultVariable] = result;
         return true;
       }
     }
@@ -2292,10 +2469,7 @@ function executeLineWithDelay(line, phase) {
   if (typeof libraryRegistry !== 'undefined') {
     const mc = libraryRegistry.parseMethodCall(l);
     if (mc) {
-      try {
-        const resolvedArgs = mc.args.map(resolveLibraryArgValue);
-        mc.instance[mc.methodName](...resolvedArgs);
-      } catch (e) {}
+      invokeLibraryMethodCall(mc);
       return true;
     }
   }
