@@ -34,6 +34,33 @@ class ServoLibrary {
     return null;
   }
 
+  _findExactComp() {
+    if (this._pin === null) return null;
+
+    if (typeof globalThis.findConnectedComponent === 'function') {
+      return globalThis.findConnectedComponent('servo', 'PWM', this._pin);
+    }
+
+    return null;
+  }
+
+  _throwTryWiringError() {
+    if (
+      typeof simulatorTryCatchDepth === 'undefined' ||
+      simulatorTryCatchDepth <= 0 ||
+      typeof findComponentWiringIssue !== 'function' ||
+      typeof throwComponentWiringError !== 'function' ||
+      typeof getComponentLabel !== 'function'
+    ) {
+      return;
+    }
+
+    const issue = findComponentWiringIssue('servo', 'PWM', this._pin);
+    if (issue) {
+      throwComponentWiringError(getComponentLabel(issue.comp), issue.detail);
+    }
+  }
+
   attach(pin) {
     this._pin = typeof pin === 'number' ? pin : parseInt(pin, 10) || 0;
     this._component = this._findComp();
@@ -42,6 +69,7 @@ class ServoLibrary {
 
   write(angle) {
     this._angle = Math.min(180, Math.max(0, Number(angle) || 0));
+    if (!this._findExactComp()) this._throwTryWiringError();
     this._component = this._findComp(); // re-query every write
     console.log('[Servo] write(' + this._angle + '°) — comp:', this._component ? this._component.id : 'not found');
 

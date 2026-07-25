@@ -150,6 +150,75 @@ function getMissingPins(comp) {
   });
 }
 
+function getComponentLabel(comp) {
+  return comp && comp.label ? comp.label : (comp && comp.type ? comp.type.toUpperCase() : 'Component');
+}
+
+function makeComponentWiringError(componentLabel, detail) {
+  return makeSimulatorRuntimeError(componentLabel + ' failed: ' + detail);
+}
+
+function throwComponentWiringError(componentLabel, detail) {
+  throw makeComponentWiringError(componentLabel, detail);
+}
+
+function findComponentsByType(componentTypes) {
+  var types = Array.isArray(componentTypes) ? componentTypes : [componentTypes];
+  return components.filter(function(comp) {
+    return types.indexOf(comp.type) !== -1;
+  });
+}
+
+function findComponentWiringIssue(componentTypes, componentPinNames, mcuPinNumber) {
+  var candidates = getMCUPinCandidates(mcuPinNumber);
+  var pinNames = Array.isArray(componentPinNames) ? componentPinNames : [componentPinNames];
+  var comps = findComponentsByType(componentTypes);
+
+  for (var i = 0; i < comps.length; i++) {
+    var comp = comps[i];
+    var isOnRequestedPin = pinNames.some(function(pinName) {
+      return candidates.some(function(candidatePin) {
+        return componentConnectedToMcuPin(comp, pinName, candidatePin);
+      });
+    });
+
+    if (isOnRequestedPin && !isComponentWired(comp)) {
+      return {
+        comp: comp,
+        detail: 'missing wires: ' + getMissingPins(comp).join(', ')
+      };
+    }
+  }
+
+  for (var k = 0; k < comps.length; k++) {
+    var incompleteComp = comps[k];
+    if (!isComponentWired(incompleteComp)) {
+      return {
+        comp: incompleteComp,
+        detail: 'missing wires: ' + getMissingPins(incompleteComp).join(', ')
+      };
+    }
+  }
+
+  for (var j = 0; j < comps.length; j++) {
+    var otherComp = comps[j];
+    if (!isComponentWired(otherComp)) continue;
+
+    var hasSignalWire = pinNames.some(function(pinName) {
+      return isPinConnected(otherComp, pinName);
+    });
+
+    if (hasSignalWire) {
+      return {
+        comp: otherComp,
+        detail: 'signal pin is not connected to ' + mcuPinName(mcuPinNumber)
+      };
+    }
+  }
+
+  return null;
+}
+
 // ==========================================
 // FIND CONNECTED COMPONENT
 // ==========================================
@@ -434,6 +503,7 @@ function setPinModeValue(pin, mode) {
 }
 
 function applyBuzzerState(pin, playing, frequency) {
+  var updated = false;
   var candidates = getMCUPinCandidates(pin);
 
   for (var i = 0; i < components.length; i++) {
@@ -447,7 +517,17 @@ function applyBuzzerState(pin, playing, frequency) {
     if (!matched || !isComponentWired(comp)) continue;
     comp.state.playing = !!playing;
     if (frequency !== undefined) comp.state.frequency = frequency;
+    updated = true;
   }
+
+  if (!updated && simulatorTryCatchDepth > 0) {
+    var buzzerIssue = findComponentWiringIssue('buzzer', '+', pin);
+    if (buzzerIssue) {
+      throwComponentWiringError(getComponentLabel(buzzerIssue.comp), buzzerIssue.detail);
+    }
+  }
+
+  return updated;
 }
 
 function writeDigitalPinValue(pin, value) {
@@ -456,8 +536,15 @@ function writeDigitalPinValue(pin, value) {
   var pinName = mcuPinName(pin);
   var boolValue = !!value;
   pinValues[pinName] = boolValue;
-  updateLEDsOnPin(pinName, boolValue);
+  var ledUpdated = updateLEDsOnPin(pinName, boolValue);
   applyBuzzerState(pin, boolValue);
+
+  if (!ledUpdated && simulatorTryCatchDepth > 0) {
+    var ledIssue = findComponentWiringIssue('led', '+', pin);
+    if (ledIssue) {
+      throwComponentWiringError(getComponentLabel(ledIssue.comp), ledIssue.detail);
+    }
+  }
 }
 
 function getDefaultDigitalValue(pinName) {
@@ -469,6 +556,8 @@ function readDigitalPinValue(pin) {
 
   var pinName = mcuPinName(pin);
   var candidates = getMCUPinCandidates(pin);
+  var digitalSensorTypes = ['button', 'pir', 'ky004', 'sw420', 'flame', 'ky032', 'joystick'];
+  var digitalSignalPins = ['P1', 'OUT', 'S', 'DO', 'SW'];
 
   for (var i = 0; i < components.length; i++) {
     var comp = components[i];
@@ -521,6 +610,14 @@ function readDigitalPinValue(pin) {
   }
 
   if (pinValues[pinName] !== undefined) return pinValues[pinName] ? 1 : 0;
+
+  if (simulatorTryCatchDepth > 0) {
+    var digitalIssue = findComponentWiringIssue(digitalSensorTypes, digitalSignalPins, pin);
+    if (digitalIssue) {
+      throwComponentWiringError(getComponentLabel(digitalIssue.comp), digitalIssue.detail);
+    }
+  }
+
   return getDefaultDigitalValue(pinName);
 }
 
@@ -534,6 +631,8 @@ function readAnalogPinValue(pin, targetMax) {
 
   var candidates = getMCUPinCandidates(pin);
   var rawValue = null;
+  var analogSensorTypes = ['ldr', 'flame', 'joystick'];
+  var analogSignalPins = ['S', 'AO', 'VRX', 'VRY'];
 
   for (var i = 0; i < components.length; i++) {
     var comp = components[i];
@@ -574,7 +673,16 @@ function readAnalogPinValue(pin, targetMax) {
     }
   }
 
-  if (rawValue === null) rawValue = pinValues[mcuPinName(pin)] ? 4095 : 0;
+  if (rawValue === null) {
+    if (simulatorTryCatchDepth > 0) {
+      var analogIssue = findComponentWiringIssue(analogSensorTypes, analogSignalPins, pin);
+      if (analogIssue) {
+        throwComponentWiringError(getComponentLabel(analogIssue.comp), analogIssue.detail);
+      }
+    }
+
+    rawValue = pinValues[mcuPinName(pin)] ? 4095 : 0;
+  }
   return targetMax === 65535 ? scaleAnalogValue(rawValue, 65535) : clampValue(rawValue, 0, 4095);
 }
 
@@ -583,7 +691,15 @@ function getUltrasonicPulseDuration(pin, expectedValue) {
   if (parseInt(expectedValue, 10) !== 1) return 0;
 
   var comp = findConnectedComponent('ultrasonic', 'Echo', pin);
-  if (!comp) return 0;
+  if (!comp) {
+    if (simulatorTryCatchDepth > 0) {
+      var ultrasonicIssue = findComponentWiringIssue('ultrasonic', 'Echo', pin);
+      if (ultrasonicIssue) {
+        throwComponentWiringError(getComponentLabel(ultrasonicIssue.comp), ultrasonicIssue.detail);
+      }
+    }
+    return 0;
+  }
 
   var distance = clampValue(parseFloat(comp.state.distance) || 0, 0, 400);
   return Math.round(distance * 2 / 0.0343);
@@ -610,6 +726,8 @@ function writePWMValue(pin, dutyValue, dutyMax, frequency) {
   var pinName = mcuPinName(pin);
   var duty = clampValue(parseFloat(dutyValue) || 0, 0, dutyMax);
   var candidates = getMCUPinCandidates(pin);
+  var servoUpdated = false;
+  var buzzerUpdated = false;
 
   pinValues[pinName] = duty > 0;
   updateLEDsOnPin(pinName, duty > 0);
@@ -623,6 +741,7 @@ function writePWMValue(pin, dutyValue, dutyMax, frequency) {
       });
       if (sm && isComponentWired(comp)) {
         comp.state.angle = mapServoDutyToAngle(duty, dutyMax, frequency);
+        servoUpdated = true;
       }
     }
 
@@ -633,6 +752,23 @@ function writePWMValue(pin, dutyValue, dutyMax, frequency) {
       if (bm && isComponentWired(comp)) {
         comp.state.playing = duty > 0 && (frequency === undefined || frequency > 0);
         if (frequency !== undefined) comp.state.frequency = frequency;
+        buzzerUpdated = true;
+      }
+    }
+  }
+
+  if (simulatorTryCatchDepth > 0) {
+    if (!servoUpdated) {
+      var servoIssue = findComponentWiringIssue('servo', 'PWM', pin);
+      if (servoIssue) {
+        throwComponentWiringError(getComponentLabel(servoIssue.comp), servoIssue.detail);
+      }
+    }
+
+    if (!buzzerUpdated) {
+      var buzzerIssue = findComponentWiringIssue('buzzer', '+', pin);
+      if (buzzerIssue) {
+        throwComponentWiringError(getComponentLabel(buzzerIssue.comp), buzzerIssue.detail);
       }
     }
   }
@@ -755,7 +891,11 @@ function registerMicroPythonSSD1306(name, width, height, i2cRef, addr) {
     i2cRef: i2cName
   };
 
-  return instance.begin(0, isNaN(addrValue) ? undefined : addrValue);
+  var ok = instance.begin(0, isNaN(addrValue) ? undefined : addrValue);
+  if (!ok) {
+    throw makeSimulatorRuntimeError('SSD1306 failed: OLED initialization failed');
+  }
+  return ok;
 }
 
 function makeMicroPythonTimeoutError() {
@@ -1784,6 +1924,46 @@ function compilePythonIfChain(lines, state, indent, cursor, options) {
   return out;
 }
 
+function isPythonExceptLine(text) {
+  return /^except(?:\s+[\w.]+(?:\s+as\s+\w+)?)?\s*:\s*$/.test(String(text || '').trim());
+}
+
+function compilePythonTryExcept(lines, state, indent, cursor, options) {
+  var out = [];
+  var tryLine = lines[cursor.index];
+  if (!tryLine || tryLine.indent !== indent || !/^try\s*:\s*$/.test(tryLine.text)) return out;
+
+  out.push('try {');
+  cursor.index++;
+
+  var tryIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
+  out.push.apply(out, compilePythonStatements(lines, state, tryIndent, cursor, options));
+
+  var exceptLine = lines[cursor.index];
+  if (!exceptLine || exceptLine.indent !== indent || !isPythonExceptLine(exceptLine.text)) {
+    out.push('}');
+    return out;
+  }
+
+  out.push('} catch (...) {');
+  cursor.index++;
+
+  var exceptIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
+  out.push.apply(out, compilePythonStatements(lines, state, exceptIndent, cursor, options));
+  out.push('}');
+
+  while (
+    cursor.index < lines.length &&
+    lines[cursor.index].indent === indent &&
+    isPythonExceptLine(lines[cursor.index].text)
+  ) {
+    var skipped = collectIndentedPythonBlock(lines, cursor.index + 1, indent);
+    cursor.index = skipped.nextIndex;
+  }
+
+  return out;
+}
+
 function compilePythonStatements(lines, state, indent, cursor, options) {
   var out = [];
 
@@ -1800,7 +1980,12 @@ function compilePythonStatements(lines, state, indent, cursor, options) {
       continue;
     }
 
-    if (/^elif\s+/.test(line.text) || /^else\s*:\s*$/.test(line.text)) {
+    if (/^try\s*:\s*$/.test(line.text)) {
+      out.push.apply(out, compilePythonTryExcept(lines, state, indent, cursor, options));
+      continue;
+    }
+
+    if (/^elif\s+/.test(line.text) || /^else\s*:\s*$/.test(line.text) || isPythonExceptLine(line.text)) {
       break;
     }
 
