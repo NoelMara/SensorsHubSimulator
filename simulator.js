@@ -173,6 +173,9 @@ function findComponentWiringIssue(componentTypes, componentPinNames, mcuPinNumbe
   var candidates = getMCUPinCandidates(mcuPinNumber);
   var pinNames = Array.isArray(componentPinNames) ? componentPinNames : [componentPinNames];
   var comps = findComponentsByType(componentTypes);
+  var expectedPin = mcuPinName(mcuPinNumber);
+  var expectedSignals = pinNames.join('/');
+  var expectedDetail = 'Code expected ' + expectedSignals + ' on ' + expectedPin + '.';
 
   for (var i = 0; i < comps.length; i++) {
     var comp = comps[i];
@@ -185,7 +188,7 @@ function findComponentWiringIssue(componentTypes, componentPinNames, mcuPinNumbe
     if (isOnRequestedPin && !isComponentWired(comp)) {
       return {
         comp: comp,
-        detail: 'missing wires: ' + getMissingPins(comp).join(', ')
+        detail: 'missing wires: ' + getMissingPins(comp).join(', ') + '. ' + expectedDetail
       };
     }
   }
@@ -195,7 +198,7 @@ function findComponentWiringIssue(componentTypes, componentPinNames, mcuPinNumbe
     if (!isComponentWired(incompleteComp)) {
       return {
         comp: incompleteComp,
-        detail: 'missing wires: ' + getMissingPins(incompleteComp).join(', ')
+        detail: 'missing wires: ' + getMissingPins(incompleteComp).join(', ') + '. ' + expectedDetail
       };
     }
   }
@@ -211,7 +214,7 @@ function findComponentWiringIssue(componentTypes, componentPinNames, mcuPinNumbe
     if (hasSignalWire) {
       return {
         comp: otherComp,
-        detail: 'signal pin is not connected to ' + mcuPinName(mcuPinNumber)
+        detail: 'signal pin is not connected to ' + expectedPin + '. ' + expectedDetail
       };
     }
   }
@@ -898,12 +901,25 @@ function registerMicroPythonSSD1306(name, width, height, i2cRef, addr) {
   return ok;
 }
 
-function makeMicroPythonTimeoutError() {
-  var err = new Error('[Errno 110] ETIMEDOUT');
+function makeMicroPythonTimeoutError(detail) {
+  var msg = '[Errno 110] ETIMEDOUT';
+  if (detail) msg += ': ' + detail;
+  var err = new Error(msg);
   err.name = 'OSError';
   err.errno = 110;
   err.code = 'ETIMEDOUT';
   return err;
+}
+
+function makeMicroPythonDHTError(name) {
+  var entry = resolveMicroPythonDHTEntry(name);
+  if (!entry) return makeMicroPythonTimeoutError('DHT sensor is not initialized.');
+
+  var pin = resolveMicroPythonPinRef(entry.pinRef);
+  var issue = findComponentWiringIssue('dht', 'Data', pin);
+  if (issue) return makeMicroPythonTimeoutError(issue.detail);
+
+  return makeMicroPythonTimeoutError('DHT did not respond on ' + mcuPinName(pin) + '. Check VCC, GND, and DATA wiring.');
 }
 
 function resolveMicroPythonDHTEntry(name) {
@@ -937,14 +953,14 @@ function registerMicroPythonDHT(name, pinRef, type) {
 
 function resolveMicroPythonDHTMeasure(name) {
   var entry = resolveMicroPythonDHTEntry(name);
-  if (!entry) throw makeMicroPythonTimeoutError();
+  if (!entry) throw makeMicroPythonDHTError(name);
 
   var comp = resolveMicroPythonDHTComponent(name);
   if (!comp || !comp.state) {
     entry.ready = false;
     entry.lastTemp = NaN;
     entry.lastHum = NaN;
-    throw makeMicroPythonTimeoutError();
+    throw makeMicroPythonDHTError(name);
   }
 
   if (typeof comp.state.temperature === 'number' && typeof comp.state.humidity === 'number') {
@@ -957,25 +973,25 @@ function resolveMicroPythonDHTMeasure(name) {
   entry.ready = false;
   entry.lastTemp = NaN;
   entry.lastHum = NaN;
-  throw makeMicroPythonTimeoutError();
+  throw makeMicroPythonDHTError(name);
 }
 
 function resolveMicroPythonDHTTemperature(name) {
   var entry = resolveMicroPythonDHTEntry(name);
-  if (!entry || !entry.ready) throw makeMicroPythonTimeoutError();
+  if (!entry || !entry.ready) throw makeMicroPythonDHTError(name);
 
   var comp = resolveMicroPythonDHTComponent(name);
-  if (!comp || !comp.state || typeof comp.state.temperature !== 'number') throw makeMicroPythonTimeoutError();
+  if (!comp || !comp.state || typeof comp.state.temperature !== 'number') throw makeMicroPythonDHTError(name);
 
   return entry.lastTemp;
 }
 
 function resolveMicroPythonDHTHumidity(name) {
   var entry = resolveMicroPythonDHTEntry(name);
-  if (!entry || !entry.ready) throw makeMicroPythonTimeoutError();
+  if (!entry || !entry.ready) throw makeMicroPythonDHTError(name);
 
   var comp = resolveMicroPythonDHTComponent(name);
-  if (!comp || !comp.state || typeof comp.state.humidity !== 'number') throw makeMicroPythonTimeoutError();
+  if (!comp || !comp.state || typeof comp.state.humidity !== 'number') throw makeMicroPythonDHTError(name);
 
   return entry.lastHum;
 }
