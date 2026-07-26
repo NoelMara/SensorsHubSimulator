@@ -21,6 +21,8 @@ let serialRxBuffer = [];
 let runtimeMode = 'ino';
 let microPythonRuntime = null;
 let simulatorTryCatchDepth = 0;
+let runtimeTryStack = [];
+let nextRuntimeTryId = 1;
 
 const REQUIRED_PINS = {
   led:        ['+', '-'],
@@ -1195,6 +1197,15 @@ function executeStructuredLines(sourceLines, phase) {
       }
     }
 
+    if (/^for\s*\(/.test(l)) {
+      const consumed = handleForBlock(i, sourceLines, phase);
+      if (consumed > 0) {
+        i += consumed;
+        if (isDelayActive) break;
+        continue;
+      }
+    }
+
     if (/^if\s*\(/.test(l)) {
       const consumed = handleIfBlock(i, sourceLines, phase);
       if (consumed > 0) {
@@ -1378,6 +1389,203 @@ function handleTryBlock(startIdx, sourceLines, phase) {
 
   return endIdx - startIdx;
 }
+
+function parseSimpleForHeader(line) {
+  var m = String(line || '').trim().match(/^for\s*\(\s*(?:int\s+)?(\w+)\s*=\s*(-?\d+)\s*;\s*\1\s*([<>]=?)\s*(-?\d+)\s*;\s*\1\s*(\+\+|--|\+=\s*-?\d+|-=\s*-?\d+)\s*\)\s*\{?\s*$/);
+  if (!m) return null;
+
+  var stepText = m[5].replace(/\s+/g, '');
+  var step = 0;
+  if (stepText === '++') step = 1;
+  else if (stepText === '--') step = -1;
+  else if (/^\+=-?\d+$/.test(stepText)) step = parseInt(stepText.slice(2), 10);
+  else if (/^-=-?\d+$/.test(stepText)) step = -parseInt(stepText.slice(2), 10);
+
+  if (!step) return null;
+
+  return {
+    varName: m[1],
+    start: parseInt(m[2], 10),
+    op: m[3],
+    end: parseInt(m[4], 10),
+    step: step
+  };
+}
+
+function isForConditionTrue(value, op, end) {
+  if (op === '<') return value < end;
+  if (op === '<=') return value <= end;
+  if (op === '>') return value > end;
+  if (op === '>=') return value >= end;
+  return false;
+}
+
+function handleForBlock(startIdx, sourceLines, phase) {
+  var info = parseSimpleForHeader(sourceLines[startIdx]);
+  if (!info) return 0;
+
+  var block = collectStructuredBlockBody(sourceLines, startIdx);
+  var maxIterations = 1000;
+  var iterationCount = 0;
+
+  for (var value = info.start; isForConditionTrue(value, info.op, info.end); value += info.step) {
+    variables[info.varName] = value;
+    executeStructuredLines(block.bodyLines, phase);
+    iterationCount++;
+
+    if (isDelayActive) {
+      delayAdvance = block.nextIdx - startIdx;
+      delayPhase = phase;
+      break;
+    }
+
+    if (iterationCount >= maxIterations) {
+      throw makeSimulatorRuntimeError('for loop exceeded ' + maxIterations + ' iterations');
+    }
+  }
+
+  return block.nextIdx - startIdx;
+}
+
+function unrollSimpleForBlocks(sourceLines) {
+  var out = [];
+
+  for (var i = 0; i < sourceLines.length;) {
+    var l = String(sourceLines[i] || '').trim();
+    var info = parseSimpleForHeader(l);
+
+    if (!info) {
+      out.push(sourceLines[i]);
+      i++;
+      continue;
+    }
+
+    var block = collectStructuredBlockBody(sourceLines, i);
+    var body = unrollSimpleForBlocks(block.bodyLines);
+    var maxIterations = 1000;
+    var iterationCount = 0;
+
+    for (var value = info.start; isForConditionTrue(value, info.op, info.end); value += info.step) {
+      out.push(info.varName + ' = ' + value + ';');
+      out.push.apply(out, body);
+      iterationCount++;
+
+      if (iterationCount >= maxIterations) break;
+    }
+
+    i = block.nextIdx;
+  }
+
+  return out;
+}
+
+function makeTryMarker(kind, id) {
+  return '__try_' + kind + '(' + id + ');';
+}
+
+function parseTryMarker(line) {
+  var m = String(line || '').trim().match(/^__try_(begin|end|catch_begin|catch_end)\((\d+)\);?$/);
+  if (!m) return null;
+  return { kind: m[1], id: parseInt(m[2], 10) };
+}
+
+function flattenTryCatchBlocks(sourceLines) {
+  var out = [];
+
+  for (var i = 0; i < sourceLines.length;) {
+    if (!isTryStartLine(sourceLines[i])) {
+      out.push(sourceLines[i]);
+      i++;
+      continue;
+    }
+
+    var tryBlock = collectStructuredBlockBody(sourceLines, i);
+    var catchIdx = findNextExecutableLine(sourceLines, tryBlock.nextIdx);
+
+    if (catchIdx >= sourceLines.length || !isCatchStartLine(sourceLines[catchIdx])) {
+      out.push(sourceLines[i]);
+      out.push.apply(out, flattenTryCatchBlocks(tryBlock.bodyLines));
+      out.push('}');
+      i = tryBlock.nextIdx;
+      continue;
+    }
+
+    var catchBlock = collectStructuredBlockBody(sourceLines, catchIdx);
+    var id = nextRuntimeTryId++;
+
+    out.push(makeTryMarker('begin', id));
+    out.push.apply(out, flattenTryCatchBlocks(tryBlock.bodyLines));
+    out.push(makeTryMarker('end', id));
+    out.push(makeTryMarker('catch_begin', id));
+    out.push.apply(out, flattenTryCatchBlocks(catchBlock.bodyLines));
+    out.push(makeTryMarker('catch_end', id));
+
+    i = catchBlock.nextIdx;
+  }
+
+  return out;
+}
+
+function findTryMarkerIndex(sourceLines, kind, id, startIdx) {
+  for (var i = startIdx || 0; i < sourceLines.length; i++) {
+    var marker = parseTryMarker(sourceLines[i]);
+    if (marker && marker.kind === kind && marker.id === id) return i;
+  }
+  return -1;
+}
+
+function removeRuntimeTryFrame(id) {
+  for (var i = runtimeTryStack.length - 1; i >= 0; i--) {
+    if (runtimeTryStack[i] === id) {
+      runtimeTryStack.splice(i);
+      return;
+    }
+  }
+}
+
+function handleTryMarkerLine(line, sourceLines, currentIdx) {
+  var marker = parseTryMarker(line);
+  if (!marker) return null;
+
+  if (marker.kind === 'begin') {
+    runtimeTryStack.push(marker.id);
+    simulatorTryCatchDepth++;
+    return currentIdx + 1;
+  }
+
+  if (marker.kind === 'end') {
+    removeRuntimeTryFrame(marker.id);
+    if (simulatorTryCatchDepth > 0) simulatorTryCatchDepth--;
+    var catchEnd = findTryMarkerIndex(sourceLines, 'catch_end', marker.id, currentIdx + 1);
+    return catchEnd >= 0 ? catchEnd + 1 : currentIdx + 1;
+  }
+
+  if (marker.kind === 'catch_begin') {
+    var normalCatchEnd = findTryMarkerIndex(sourceLines, 'catch_end', marker.id, currentIdx + 1);
+    return normalCatchEnd >= 0 ? normalCatchEnd + 1 : currentIdx + 1;
+  }
+
+  if (marker.kind === 'catch_end') {
+    return currentIdx + 1;
+  }
+
+  return currentIdx + 1;
+}
+
+function jumpToCatchForRuntimeError(err, sourceLines) {
+  if (!isCatchableSimulatorError(err) || runtimeTryStack.length === 0) return -1;
+
+  var id = runtimeTryStack[runtimeTryStack.length - 1];
+  var catchBegin = findTryMarkerIndex(sourceLines, 'catch_begin', id, 0);
+  if (catchBegin < 0) return -1;
+
+  removeRuntimeTryFrame(id);
+  if (simulatorTryCatchDepth > 0) simulatorTryCatchDepth--;
+  isDelayActive = false;
+  delayAdvance = 1;
+  return catchBegin + 1;
+}
+
 function evaluateMath(expr) {
   expr = String(expr || '').trim().replace(/;$/, '');
   let e = normalizeEvaluatorExpression(expr);
@@ -1980,6 +2188,57 @@ function compilePythonTryExcept(lines, state, indent, cursor, options) {
   return out;
 }
 
+function parsePythonRangeForLine(text) {
+  var m = String(text || '').trim().match(/^for\s+(\w+)\s+in\s+range\s*\((.*)\)\s*:\s*$/);
+  if (!m) return null;
+
+  var args = splitCallArguments(m[2]).map(function(arg) {
+    return String(arg || '').trim();
+  });
+  if (args.length < 1 || args.length > 3) return null;
+  if (!args.every(function(arg) { return /^-?\d+$/.test(arg); })) return null;
+
+  var start = args.length === 1 ? 0 : parseInt(args[0], 10);
+  var end = args.length === 1 ? parseInt(args[0], 10) : parseInt(args[1], 10);
+  var step = args.length === 3 ? parseInt(args[2], 10) : 1;
+  if (step === 0) return null;
+
+  return {
+    varName: m[1],
+    start: start,
+    end: end,
+    step: step
+  };
+}
+
+function compilePythonRangeFor(lines, state, indent, cursor, options) {
+  var loop = parsePythonRangeForLine(lines[cursor.index] && lines[cursor.index].text);
+  if (!loop) return [];
+
+  cursor.index++;
+  var childIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
+  var body = compilePythonStatements(lines, state, childIndent, cursor, options);
+  var out = [];
+  var maxIterations = 1000;
+  var iterationCount = 0;
+
+  for (
+    var value = loop.start;
+    loop.step > 0 ? value < loop.end : value > loop.end;
+    value += loop.step
+  ) {
+    out.push(loop.varName + ' = ' + value + ';');
+    out.push.apply(out, body);
+    iterationCount++;
+
+    if (iterationCount >= maxIterations) {
+      break;
+    }
+  }
+
+  return out;
+}
+
 function compilePythonStatements(lines, state, indent, cursor, options) {
   var out = [];
 
@@ -1999,6 +2258,14 @@ function compilePythonStatements(lines, state, indent, cursor, options) {
     if (/^try\s*:\s*$/.test(line.text)) {
       out.push.apply(out, compilePythonTryExcept(lines, state, indent, cursor, options));
       continue;
+    }
+
+    if (/^for\s+\w+\s+in\s+range\s*\(/.test(line.text)) {
+      var forOut = compilePythonRangeFor(lines, state, indent, cursor, options);
+      if (forOut.length > 0) {
+        out.push.apply(out, forOut);
+        continue;
+      }
     }
 
     if (/^elif\s+/.test(line.text) || /^else\s*:\s*$/.test(line.text) || isPythonExceptLine(line.text)) {
@@ -2153,6 +2420,9 @@ function runCode() {
   delayPhase = 'loop';
   serialLineBuffer = '';
   serialRxBuffer = [];
+  runtimeTryStack = [];
+  simulatorTryCatchDepth = 0;
+  nextRuntimeTryId = 1;
 
   if (typeof libraryRegistry !== 'undefined') libraryRegistry.reset();
 
@@ -2232,6 +2502,9 @@ function runCode() {
     if (inLoop) loopLines.push(l);
   }
 
+  setupLines = flattenTryCatchBlocks(unrollSimpleForBlocks(setupLines));
+  loopLines = flattenTryCatchBlocks(unrollSimpleForBlocks(loopLines));
+
   inSetupPhase = setupLines.length > 0;
 
   if (executionInterval) clearInterval(executionInterval);
@@ -2255,6 +2528,8 @@ function tick() {
           if (currentSetupLineIndex >= setupLines.length) {
             inSetupPhase = false;
             currentLineIndex = 0;
+            runtimeTryStack = [];
+            simulatorTryCatchDepth = 0;
           }
         } else {
           currentLineIndex += delayAdvance;
@@ -2282,11 +2557,28 @@ function tick() {
       if (l === 'return' || l === 'return;') {
         inSetupPhase = false;
         currentLineIndex = 0;
+        runtimeTryStack = [];
+        simulatorTryCatchDepth = 0;
+        return;
+      }
+
+      const setupMarkerNext = handleTryMarkerLine(l, setupLines, currentSetupLineIndex);
+      if (setupMarkerNext !== null) {
+        currentSetupLineIndex = setupMarkerNext;
         return;
       }
 
       if (/^try\s*\{?\s*$/.test(l)) {
         const consumed = handleTryBlock(currentSetupLineIndex, setupLines, 'setup');
+        if (consumed > 0) {
+          if (!isDelayActive) currentSetupLineIndex += consumed;
+          if (typeof draw === 'function') draw();
+          return;
+        }
+      }
+
+      if (/^for\s*\(/.test(l)) {
+        const consumed = handleForBlock(currentSetupLineIndex, setupLines, 'setup');
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -2310,6 +2602,8 @@ function tick() {
 
     if (currentLineIndex >= loopLines.length) {
       currentLineIndex = 0;
+      runtimeTryStack = [];
+      simulatorTryCatchDepth = 0;
       return;
     }
 
@@ -2321,11 +2615,28 @@ function tick() {
 
     if (l === 'return' || l === 'return;') {
       currentLineIndex = loopLines.length;
+      runtimeTryStack = [];
+      simulatorTryCatchDepth = 0;
+      return;
+    }
+
+    const loopMarkerNext = handleTryMarkerLine(l, loopLines, currentLineIndex);
+    if (loopMarkerNext !== null) {
+      currentLineIndex = loopMarkerNext;
       return;
     }
 
     if (/^try\s*\{?\s*$/.test(l)) {
       const consumed = handleTryBlock(currentLineIndex, loopLines, 'loop');
+      if (consumed > 0) {
+        if (!isDelayActive) currentLineIndex += consumed;
+        if (typeof draw === 'function') draw();
+        return;
+      }
+    }
+
+    if (/^for\s*\(/.test(l)) {
+      const consumed = handleForBlock(currentLineIndex, loopLines, 'loop');
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -2346,6 +2657,15 @@ function tick() {
     if (!isDelayActive && ok !== false) currentLineIndex++;
     if (typeof draw === 'function') draw();
   } catch (err) {
+    const lines = inSetupPhase ? setupLines : loopLines;
+    const catchIdx = jumpToCatchForRuntimeError(err, lines);
+    if (catchIdx >= 0) {
+      if (inSetupPhase) currentSetupLineIndex = catchIdx;
+      else currentLineIndex = catchIdx;
+      if (typeof draw === 'function') draw();
+      return;
+    }
+
     handleRuntimeError(err);
   }
 }
