@@ -23,6 +23,7 @@ let microPythonRuntime = null;
 let simulatorTryCatchDepth = 0;
 let runtimeTryStack = [];
 let nextRuntimeTryId = 1;
+let runtimeWhileFrames = {};
 
 const REQUIRED_PINS = {
   led:        ['+', '-'],
@@ -1176,7 +1177,11 @@ function evalCondition(cond) {
 // ==========================================
 
 function executeStructuredLines(sourceLines, phase) {
-  for (let i = 0; i < sourceLines.length;) {
+  return executeStructuredLinesFrom(sourceLines, phase, 0);
+}
+
+function executeStructuredLinesFrom(sourceLines, phase, startIdx) {
+  for (let i = startIdx || 0; i < sourceLines.length;) {
     const l = String(sourceLines[i] || '').trim();
 
     if (!l || l === '{' || l === '}' || l === '};' || l.startsWith('//')) {
@@ -1185,14 +1190,14 @@ function executeStructuredLines(sourceLines, phase) {
     }
 
     if (l === 'return' || l.startsWith('return ') || l.startsWith('return;')) {
-      break;
+      return { nextIdx: i, returned: true };
     }
 
     if (/^try\s*\{?\s*$/.test(l)) {
       const consumed = handleTryBlock(i, sourceLines, phase);
       if (consumed > 0) {
+        if (isDelayActive) return { nextIdx: i, delayed: true };
         i += consumed;
-        if (isDelayActive) break;
         continue;
       }
     }
@@ -1200,8 +1205,17 @@ function executeStructuredLines(sourceLines, phase) {
     if (/^for\s*\(/.test(l)) {
       const consumed = handleForBlock(i, sourceLines, phase);
       if (consumed > 0) {
+        if (isDelayActive) return { nextIdx: i, delayed: true };
         i += consumed;
-        if (isDelayActive) break;
+        continue;
+      }
+    }
+
+    if (/^while\s*\(/.test(l)) {
+      const consumed = handleWhileBlock(i, sourceLines, phase);
+      if (consumed > 0) {
+        if (isDelayActive) return { nextIdx: i, delayed: true };
+        i += consumed;
         continue;
       }
     }
@@ -1209,17 +1223,20 @@ function executeStructuredLines(sourceLines, phase) {
     if (/^if\s*\(/.test(l)) {
       const consumed = handleIfBlock(i, sourceLines, phase);
       if (consumed > 0) {
+        if (isDelayActive) return { nextIdx: i, delayed: true };
         i += consumed;
-        if (isDelayActive) break;
         continue;
       }
     }
 
     const ok = executeLineWithDelay(l, phase);
-    if (ok === false) break;
+    if (ok === false) return { nextIdx: i, stopped: true };
+    if (isDelayActive) return { nextIdx: i + 1, delayed: true };
 
     i++;
   }
+
+  return { nextIdx: sourceLines.length };
 }
 
 function handleIfBlock(startIdx, sourceLines, phase) {
@@ -1390,24 +1407,50 @@ function handleTryBlock(startIdx, sourceLines, phase) {
   return endIdx - startIdx;
 }
 
+function resolveLoopNumericValue(expr, localValues) {
+  var source = String(expr || '').trim();
+  var scoped = source;
+
+  if (localValues) {
+    for (var k in localValues) {
+      if (typeof localValues[k] === 'number') {
+        scoped = scoped.replace(new RegExp('\\b' + k + '\\b', 'g'), String(localValues[k]));
+      }
+    }
+  }
+
+  var value = evaluateMath(scoped);
+  if (value === null) {
+    if (localValues && localValues[source] !== undefined) value = localValues[source];
+    else value = parseValue(scoped);
+  }
+  value = Number(value);
+  return Number.isFinite(value) ? value : null;
+}
+
 function parseSimpleForHeader(line) {
-  var m = String(line || '').trim().match(/^for\s*\(\s*(?:int\s+)?(\w+)\s*=\s*(-?\d+)\s*;\s*\1\s*([<>]=?)\s*(-?\d+)\s*;\s*\1\s*(\+\+|--|\+=\s*-?\d+|-=\s*-?\d+)\s*\)\s*\{?\s*$/);
+  var m = String(line || '').trim().match(/^for\s*\(\s*(?:int\s+)?(\w+)\s*=\s*(.+?)\s*;\s*\1\s*([<>]=?)\s*(.+?)\s*;\s*\1\s*(\+\+|--|\+=\s*.+?|-=\s*.+?)\s*\)\s*\{?\s*$/);
   if (!m) return null;
 
   var stepText = m[5].replace(/\s+/g, '');
   var step = 0;
   if (stepText === '++') step = 1;
   else if (stepText === '--') step = -1;
-  else if (/^\+=-?\d+$/.test(stepText)) step = parseInt(stepText.slice(2), 10);
-  else if (/^-=-?\d+$/.test(stepText)) step = -parseInt(stepText.slice(2), 10);
+  else if (/^\+=.+$/.test(stepText)) step = resolveLoopNumericValue(stepText.slice(2));
+  else if (/^-=.+$/.test(stepText)) {
+    var decrement = resolveLoopNumericValue(stepText.slice(2));
+    step = decrement === null ? null : -decrement;
+  }
 
-  if (!step) return null;
+  var start = resolveLoopNumericValue(m[2]);
+  var end = resolveLoopNumericValue(m[4]);
+  if (start === null || end === null || !step) return null;
 
   return {
     varName: m[1],
-    start: parseInt(m[2], 10),
+    start: start,
     op: m[3],
-    end: parseInt(m[4], 10),
+    end: end,
     step: step
   };
 }
@@ -1418,6 +1461,42 @@ function isForConditionTrue(value, op, end) {
   if (op === '>') return value > end;
   if (op === '>=') return value >= end;
   return false;
+}
+
+function handleWhileBlock(startIdx, sourceLines, phase) {
+  var header = String(sourceLines[startIdx] || '').trim();
+  var m = header.match(/^while\s*\((.+)\)\s*\{?\s*$/);
+  if (!m) return 0;
+
+  var block = collectStructuredBlockBody(sourceLines, startIdx);
+  var maxIterations = 1000;
+  var frameKey = phase + ':' + startIdx;
+  var frame = runtimeWhileFrames[frameKey] || { bodyIdx: 0, iterationCount: 0 };
+
+  while (evalCondition(m[1])) {
+    var result = executeStructuredLinesFrom(block.bodyLines, phase, frame.bodyIdx);
+
+    if (isDelayActive) {
+      frame.bodyIdx = result.nextIdx;
+      runtimeWhileFrames[frameKey] = frame;
+      delayAdvance = 0;
+      delayPhase = phase;
+      break;
+    }
+
+    frame.bodyIdx = 0;
+    frame.iterationCount++;
+
+    if (result && result.returned) break;
+
+    if (frame.iterationCount >= maxIterations) {
+      delete runtimeWhileFrames[frameKey];
+      throw makeSimulatorRuntimeError('while loop exceeded ' + maxIterations + ' iterations');
+    }
+  }
+
+  if (!isDelayActive) delete runtimeWhileFrames[frameKey];
+  return block.nextIdx - startIdx;
 }
 
 function handleForBlock(startIdx, sourceLines, phase) {
@@ -2188,7 +2267,7 @@ function compilePythonTryExcept(lines, state, indent, cursor, options) {
   return out;
 }
 
-function parsePythonRangeForLine(text) {
+function parsePythonRangeForLine(text, state) {
   var m = String(text || '').trim().match(/^for\s+(\w+)\s+in\s+range\s*\((.*)\)\s*:\s*$/);
   if (!m) return null;
 
@@ -2196,12 +2275,13 @@ function parsePythonRangeForLine(text) {
     return String(arg || '').trim();
   });
   if (args.length < 1 || args.length > 3) return null;
-  if (!args.every(function(arg) { return /^-?\d+$/.test(arg); })) return null;
 
-  var start = args.length === 1 ? 0 : parseInt(args[0], 10);
-  var end = args.length === 1 ? parseInt(args[0], 10) : parseInt(args[1], 10);
-  var step = args.length === 3 ? parseInt(args[2], 10) : 1;
-  if (step === 0) return null;
+  var start = args.length === 1 ? 0 : resolveLoopNumericValue(translatePythonExpression(args[0], state), state.constants);
+  var end = args.length === 1
+    ? resolveLoopNumericValue(translatePythonExpression(args[0], state), state.constants)
+    : resolveLoopNumericValue(translatePythonExpression(args[1], state), state.constants);
+  var step = args.length === 3 ? resolveLoopNumericValue(translatePythonExpression(args[2], state), state.constants) : 1;
+  if (start === null || end === null || !step) return null;
 
   return {
     varName: m[1],
@@ -2211,8 +2291,28 @@ function parsePythonRangeForLine(text) {
   };
 }
 
+function rememberPythonNumericAssignment(text, state) {
+  var assign = String(text || '').trim().match(/^(\w+)\s*=\s*(.+)$/);
+  if (!assign) return;
+
+  var value = resolveLoopNumericValue(translatePythonExpression(assign[2], state), state.constants);
+  if (value === null) delete state.constants[assign[1]];
+  else state.constants[assign[1]] = value;
+}
+
+function compilePythonWhileBlock(lines, state, indent, cursor, options) {
+  var line = lines[cursor.index];
+  var m = line && line.text.match(/^while\s+(.+)\s*:\s*$/i);
+  if (!m) return [];
+
+  cursor.index++;
+  var childIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
+  var body = compilePythonStatements(lines, state, childIndent, cursor, options);
+  return ['while (' + translatePythonCondition(m[1], state) + ') {'].concat(body).concat(['}']);
+}
+
 function compilePythonRangeFor(lines, state, indent, cursor, options) {
-  var loop = parsePythonRangeForLine(lines[cursor.index] && lines[cursor.index].text);
+  var loop = parsePythonRangeForLine(lines[cursor.index] && lines[cursor.index].text, state);
   if (!loop) return [];
 
   cursor.index++;
@@ -2272,13 +2372,12 @@ function compilePythonStatements(lines, state, indent, cursor, options) {
       break;
     }
 
-    if (/^while\s+True\s*:\s*$/i.test(line.text)) {
-      cursor.index++;
-      var nestedIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
-      out.push.apply(out, compilePythonStatements(lines, state, nestedIndent, cursor, options));
+    if (/^while\s+.+\s*:\s*$/i.test(line.text)) {
+      out.push.apply(out, compilePythonWhileBlock(lines, state, indent, cursor, options));
       continue;
     }
 
+    rememberPythonNumericAssignment(line.text, state);
     var translated = translatePythonStatement(line.text, state, options) || [];
     out.push.apply(out, translated);
     cursor.index++;
@@ -2301,7 +2400,8 @@ function convertPyToSim(code) {
     pwmVars: {},
     i2cVars: {},
     displayVars: {},
-    dhtVars: {}
+    dhtVars: {},
+    constants: {}
   };
 
   var setupCursor = { index: 0 };
@@ -2586,6 +2686,15 @@ function tick() {
         }
       }
 
+      if (/^while\s*\(/.test(l)) {
+        const consumed = handleWhileBlock(currentSetupLineIndex, setupLines, 'setup');
+        if (consumed > 0) {
+          if (!isDelayActive) currentSetupLineIndex += consumed;
+          if (typeof draw === 'function') draw();
+          return;
+        }
+      }
+
       if (/^if\s*\(/.test(l)) {
         const consumed = handleIfBlock(currentSetupLineIndex, setupLines, 'setup');
         if (consumed > 0) {
@@ -2637,6 +2746,15 @@ function tick() {
 
     if (/^for\s*\(/.test(l)) {
       const consumed = handleForBlock(currentLineIndex, loopLines, 'loop');
+      if (consumed > 0) {
+        if (!isDelayActive) currentLineIndex += consumed;
+        if (typeof draw === 'function') draw();
+        return;
+      }
+    }
+
+    if (/^while\s*\(/.test(l)) {
+      const consumed = handleWhileBlock(currentLineIndex, loopLines, 'loop');
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
