@@ -2299,7 +2299,13 @@ function rememberPythonNumericAssignment(text, state) {
   var assign = String(text || '').trim().match(/^(\w+)\s*=\s*(.+)$/);
   if (!assign) return;
 
-  var value = resolveLoopNumericValue(translatePythonExpression(assign[2], state), state.constants);
+  var translated = translatePythonExpression(assign[2], state);
+  if (/\bmp(DHTTemperature|DHTHumidity|DHTMeasure|PinRead|AdcRead|TimePulseUs)\s*\(/.test(translated)) {
+    delete state.constants[assign[1]];
+    return;
+  }
+
+  var value = resolveLoopNumericValue(translated, state.constants);
   if (value === null) delete state.constants[assign[1]];
   else state.constants[assign[1]] = value;
 }
