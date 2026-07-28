@@ -1176,11 +1176,11 @@ function evalCondition(cond) {
 // STRUCTURED EXECUTION
 // ==========================================
 
-function executeStructuredLines(sourceLines, phase) {
-  return executeStructuredLinesFrom(sourceLines, phase, 0);
+function executeStructuredLines(sourceLines, phase, blockPath) {
+  return executeStructuredLinesFrom(sourceLines, phase, 0, blockPath);
 }
 
-function executeStructuredLinesFrom(sourceLines, phase, startIdx) {
+function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
   for (let i = startIdx || 0; i < sourceLines.length;) {
     const l = String(sourceLines[i] || '').trim();
 
@@ -1194,7 +1194,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx) {
     }
 
     if (/^try\s*\{?\s*$/.test(l)) {
-      const consumed = handleTryBlock(i, sourceLines, phase);
+      const consumed = handleTryBlock(i, sourceLines, phase, blockPath);
       if (consumed > 0) {
         if (isDelayActive) return { nextIdx: i, delayed: true };
         i += consumed;
@@ -1203,7 +1203,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx) {
     }
 
     if (/^for\s*\(/.test(l)) {
-      const consumed = handleForBlock(i, sourceLines, phase);
+     const consumed = handleForBlock(i, sourceLines, phase, blockPath);
       if (consumed > 0) {
         if (isDelayActive) return { nextIdx: i, delayed: true };
         i += consumed;
@@ -1212,7 +1212,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx) {
     }
 
     if (/^while\s*\(/.test(l)) {
-      const consumed = handleWhileBlock(i, sourceLines, phase);
+      const consumed = handleWhileBlock(i, sourceLines, phase, blockPath);
       if (consumed > 0) {
         if (isDelayActive) return { nextIdx: i, delayed: true };
         i += consumed;
@@ -1221,7 +1221,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx) {
     }
 
     if (/^if\s*\(/.test(l)) {
-      const consumed = handleIfBlock(i, sourceLines, phase);
+      const consumed = handleIfBlock(i, sourceLines, phase, blockPath);
       if (consumed > 0) {
         if (isDelayActive) return { nextIdx: i, delayed: true };
         i += consumed;
@@ -1239,10 +1239,11 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx) {
   return { nextIdx: sourceLines.length };
 }
 
-function handleIfBlock(startIdx, sourceLines, phase) {
+function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
   const firstLine = String(sourceLines[startIdx] || '').trim();
   if (!/^if\s*\(/.test(firstLine)) return 0;
 
+  const path = (blockPath || '') + '/if' + startIdx;
   let i = startIdx;
   let executed = false;
 
@@ -1311,7 +1312,7 @@ function handleIfBlock(startIdx, sourceLines, phase) {
 
     if (shouldRun) {
       executed = true;
-      executeStructuredLines(bodyLines, phase);
+      executeStructuredLines(bodyLines, phase, path);
       if (isDelayActive) {
         delayAdvance = i - startIdx;
         delayPhase = phase;
@@ -1373,8 +1374,10 @@ function findNextExecutableLine(sourceLines, idx) {
   return i;
 }
 
-function handleTryBlock(startIdx, sourceLines, phase) {
+function handleTryBlock(startIdx, sourceLines, phase, blockPath) {
   if (!isTryStartLine(sourceLines[startIdx])) return 0;
+  var path = (blockPath || '') + '/try' + startIdx;
+  var tryBlock = collectStructuredBlockBody(sourceLines, startIdx);
 
   var tryBlock = collectStructuredBlockBody(sourceLines, startIdx);
   var catchIdx = findNextExecutableLine(sourceLines, tryBlock.nextIdx);
@@ -1391,10 +1394,10 @@ function handleTryBlock(startIdx, sourceLines, phase) {
 
   try {
     simulatorTryCatchDepth++;
-    executeStructuredLines(tryBlock.bodyLines, phase);
+    executeStructuredLines(tryBlock.bodyLines, phase, path);
   } catch (err) {
     if (!hasCatch || !isCatchableSimulatorError(err)) throw err;
-    executeStructuredLines(catchLines, phase);
+    executeStructuredLines(catchLines, phase, path);
   } finally {
     simulatorTryCatchDepth--;
   }
@@ -1463,18 +1466,19 @@ function isForConditionTrue(value, op, end) {
   return false;
 }
 
-function handleWhileBlock(startIdx, sourceLines, phase) {
+function handleWhileBlock(startIdx, sourceLines, phase, blockPath) {
   var header = String(sourceLines[startIdx] || '').trim();
   var m = header.match(/^while\s*\((.+)\)\s*\{?\s*$/);
   if (!m) return 0;
 
+  var path = (blockPath || '') + '/while' + startIdx;   
   var block = collectStructuredBlockBody(sourceLines, startIdx);
   var maxIterations = 1000;
-  var frameKey = phase + ':' + startIdx;
+  var frameKey = phase + ':' + path;   
   var frame = runtimeWhileFrames[frameKey] || { bodyIdx: 0, iterationCount: 0 };
 
   while (evalCondition(m[1])) {
-    var result = executeStructuredLinesFrom(block.bodyLines, phase, frame.bodyIdx);
+    var result = executeStructuredLinesFrom(block.bodyLines, phase, frame.bodyIdx, path);
 
     if (isDelayActive) {
       frame.bodyIdx = result.nextIdx;
@@ -1499,17 +1503,17 @@ function handleWhileBlock(startIdx, sourceLines, phase) {
   return block.nextIdx - startIdx;
 }
 
-function handleForBlock(startIdx, sourceLines, phase) {
+function handleForBlock(startIdx, sourceLines, phase, blockPath) {
   var info = parseSimpleForHeader(sourceLines[startIdx]);
   if (!info) return 0;
-
+  var path = (blockPath || '') + '/for' + startIdx;
   var block = collectStructuredBlockBody(sourceLines, startIdx);
   var maxIterations = 1000;
   var iterationCount = 0;
 
   for (var value = info.start; isForConditionTrue(value, info.op, info.end); value += info.step) {
     variables[info.varName] = value;
-    executeStructuredLines(block.bodyLines, phase);
+    executeStructuredLines(block.bodyLines, phase, path);
     iterationCount++;
 
     if (isDelayActive) {
@@ -1784,9 +1788,9 @@ function stripSimpleWrappers(expr) {
   while (prev !== out) {
     prev = out;
     out = out
-      .replace(/\bint\s*\(\s*([^()]+)\s*\)/g, '($1)')
-      .replace(/\bfloat\s*\(\s*([^()]+)\s*\)/g, '($1)')
-      .replace(/\bround\s*\(\s*([^()]+)\s*\)/g, '($1)');
+      .replace(/\bint\s*\(((?:[^()]|\([^()]*\))*)\)/g, '($1)')
+      .replace(/\bfloat\s*\(((?:[^()]|\([^()]*\))*)\)/g, '($1)')
+      .replace(/\bround\s*\(((?:[^()]|\([^()]*\))*)\)/g, '($1)');
   }
 
   return out;
@@ -2669,7 +2673,7 @@ function tick() {
       }
 
       if (/^try\s*\{?\s*$/.test(l)) {
-        const consumed = handleTryBlock(currentSetupLineIndex, setupLines, 'setup');
+        const consumed = handleTryBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -2678,7 +2682,7 @@ function tick() {
       }
 
       if (/^for\s*\(/.test(l)) {
-        const consumed = handleForBlock(currentSetupLineIndex, setupLines, 'setup');
+        const consumed = handleForBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -2687,7 +2691,7 @@ function tick() {
       }
 
       if (/^while\s*\(/.test(l)) {
-        const consumed = handleWhileBlock(currentSetupLineIndex, setupLines, 'setup');
+        const consumed = handleWhileBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -2696,7 +2700,7 @@ function tick() {
       }
 
       if (/^if\s*\(/.test(l)) {
-        const consumed = handleIfBlock(currentSetupLineIndex, setupLines, 'setup');
+         const consumed = handleIfBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -2736,7 +2740,7 @@ function tick() {
     }
 
     if (/^try\s*\{?\s*$/.test(l)) {
-      const consumed = handleTryBlock(currentLineIndex, loopLines, 'loop');
+    const consumed = handleTryBlock(currentLineIndex, loopLines, 'loop', 'root');
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -2745,7 +2749,7 @@ function tick() {
     }
 
     if (/^for\s*\(/.test(l)) {
-      const consumed = handleForBlock(currentLineIndex, loopLines, 'loop');
+      const consumed = handleForBlock(currentLineIndex, loopLines, 'loop', 'root');
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -2754,7 +2758,7 @@ function tick() {
     }
 
     if (/^while\s*\(/.test(l)) {
-      const consumed = handleWhileBlock(currentLineIndex, loopLines, 'loop');
+       const consumed = handleWhileBlock(currentLineIndex, loopLines, 'loop', 'root');
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -2763,7 +2767,7 @@ function tick() {
     }
 
     if (/^if\s*\(/.test(l)) {
-      const consumed = handleIfBlock(currentLineIndex, loopLines, 'loop');
+     const consumed = handleIfBlock(currentLineIndex, loopLines, 'loop', 'root');
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
