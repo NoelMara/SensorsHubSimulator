@@ -24,6 +24,11 @@ let simulatorTryCatchDepth = 0;
 let runtimeTryStack = [];
 let nextRuntimeTryId = 1;
 let runtimeWhileFrames = {};
+let lastExceptionType = '';
+let lastExceptionMessage = '';
+
+function mpExceptionType() { return lastExceptionType; }
+function mpExceptionMessage() { return lastExceptionMessage; }
 
 const REQUIRED_PINS = {
   led:        ['+', '-'],
@@ -1397,6 +1402,8 @@ function handleTryBlock(startIdx, sourceLines, phase, blockPath) {
     executeStructuredLines(tryBlock.bodyLines, phase, path);
   } catch (err) {
     if (!hasCatch || !isCatchableSimulatorError(err)) throw err;
+    lastExceptionType = err.name || 'Exception';
+    lastExceptionMessage = err.message || '';
     executeStructuredLines(catchLines, phase, path);
   } finally {
     simulatorTryCatchDepth--;
@@ -1664,6 +1671,8 @@ function jumpToCatchForRuntimeError(err, sourceLines) {
 
   removeRuntimeTryFrame(id);
   if (simulatorTryCatchDepth > 0) simulatorTryCatchDepth--;
+  lastExceptionType = err.name || 'Exception';
+  lastExceptionMessage = err.message || '';
   isDelayActive = false;
   delayAdvance = 1;
   return catchBegin + 1;
@@ -1823,6 +1832,14 @@ function resolveSimulatorRuntimeCalls(expr) {
     return String(resolveMicroPythonDHTHumidity(ref));
   });
 
+  out = out.replace(/\bmpExceptionType\s*\(\s*\)/g, function() {
+    return JSON.stringify(lastExceptionType);
+  });
+
+  out = out.replace(/\bmpExceptionMessage\s*\(\s*\)/g, function() {
+    return JSON.stringify(lastExceptionMessage);
+  });
+
   return out;
 }
 
@@ -1896,6 +1913,21 @@ function translatePythonObjectRef(token, state) {
 
 function translatePythonExpression(expr, state) {
   var out = String(expr || '').trim();
+
+  if (state && state.exceptionVar) {
+    var evar = state.exceptionVar;
+    var typeCallRe = new RegExp('\\btype\\s*\\(\\s*' + evar + '\\s*\\)\\.__name__', 'g');
+    out = out.replace(typeCallRe, 'mpExceptionType()');
+
+    var classNameRe = new RegExp('\\b' + evar + '\\.__class__\\.__name__', 'g');
+    out = out.replace(classNameRe, 'mpExceptionType()');
+
+    var argsRe = new RegExp('\\b' + evar + '\\.args\\b', 'g');
+    out = out.replace(argsRe, 'mpExceptionMessage()');
+
+    var bareVarRe = new RegExp('\\b' + evar + '\\b', 'g');
+    out = out.replace(bareVarRe, 'mpExceptionMessage()');
+  }
 
   out = out.replace(/\b(\w+)\.value\s*\(\s*\)/g, function(match, name) {
     return state.pinVars[name] ? 'mpPinRead("' + name + '")' : match;
@@ -2252,11 +2284,21 @@ function compilePythonTryExcept(lines, state, indent, cursor, options) {
     return out;
   }
 
+  var exceptMatch = exceptLine.text.match(/^except(?:\s+([\w.]+))?(?:\s+as\s+(\w+))?\s*:\s*$/);
+  var exceptVarName = exceptMatch ? exceptMatch[2] : null;
+
   out.push('} catch (...) {');
   cursor.index++;
 
   var exceptIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
+
+  var prevExceptionVar = state.exceptionVar;
+  if (exceptVarName) state.exceptionVar = exceptVarName;
+
   out.push.apply(out, compilePythonStatements(lines, state, exceptIndent, cursor, options));
+
+  state.exceptionVar = prevExceptionVar;
+
   out.push('}');
 
   while (
@@ -2411,7 +2453,8 @@ function convertPyToSim(code) {
     i2cVars: {},
     displayVars: {},
     dhtVars: {},
-    constants: {}
+    constants: {},
+    exceptionVar: null
   };
 
   var setupCursor = { index: 0 };
@@ -2533,6 +2576,8 @@ function runCode() {
   runtimeTryStack = [];
   simulatorTryCatchDepth = 0;
   nextRuntimeTryId = 1;
+  lastExceptionType = '';
+  lastExceptionMessage = '';
 
   if (typeof libraryRegistry !== 'undefined') libraryRegistry.reset();
 
