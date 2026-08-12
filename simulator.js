@@ -29,6 +29,7 @@ let lastExceptionMessage = '';
 
 function mpExceptionType() { return lastExceptionType; }
 function mpExceptionMessage() { return lastExceptionMessage; }
+function mpExceptionArgs() { return lastExceptionMessage ? '(' + JSON.stringify(lastExceptionMessage) + ',)' : '()'; }
 
 const REQUIRED_PINS = {
   led:        ['+', '-'],
@@ -175,6 +176,10 @@ function findComponentsByType(componentTypes) {
   return components.filter(function(comp) {
     return types.indexOf(comp.type) !== -1;
   });
+}
+
+function hasComponentsOfType(componentTypes) {
+  return findComponentsByType(componentTypes).length > 0;
 }
 
 function findComponentWiringIssue(componentTypes, componentPinNames, mcuPinNumber) {
@@ -531,7 +536,7 @@ function applyBuzzerState(pin, playing, frequency) {
     updated = true;
   }
 
-  if (!updated && simulatorTryCatchDepth > 0) {
+  if (!updated && simulatorTryCatchDepth > 0 && hasComponentsOfType('buzzer')) {
     var buzzerIssue = findComponentWiringIssue('buzzer', '+', pin);
     if (buzzerIssue) {
       throwComponentWiringError(getComponentLabel(buzzerIssue.comp), buzzerIssue.detail);
@@ -550,7 +555,7 @@ function writeDigitalPinValue(pin, value) {
   var ledUpdated = updateLEDsOnPin(pinName, boolValue);
   applyBuzzerState(pin, boolValue);
 
-  if (!ledUpdated && simulatorTryCatchDepth > 0) {
+  if (!ledUpdated && simulatorTryCatchDepth > 0 && hasComponentsOfType('led')) {
     var ledIssue = findComponentWiringIssue('led', '+', pin);
     if (ledIssue) {
       throwComponentWiringError(getComponentLabel(ledIssue.comp), ledIssue.detail);
@@ -769,14 +774,14 @@ function writePWMValue(pin, dutyValue, dutyMax, frequency) {
   }
 
   if (simulatorTryCatchDepth > 0) {
-    if (!servoUpdated) {
+    if (!servoUpdated && hasComponentsOfType('servo')) {
       var servoIssue = findComponentWiringIssue('servo', 'PWM', pin);
       if (servoIssue) {
         throwComponentWiringError(getComponentLabel(servoIssue.comp), servoIssue.detail);
       }
     }
 
-    if (!buzzerUpdated) {
+    if (!buzzerUpdated && hasComponentsOfType('buzzer')) {
       var buzzerIssue = findComponentWiringIssue('buzzer', '+', pin);
       if (buzzerIssue) {
         throwComponentWiringError(getComponentLabel(buzzerIssue.comp), buzzerIssue.detail);
@@ -1384,7 +1389,6 @@ function handleTryBlock(startIdx, sourceLines, phase, blockPath) {
   var path = (blockPath || '') + '/try' + startIdx;
   var tryBlock = collectStructuredBlockBody(sourceLines, startIdx);
 
-  var tryBlock = collectStructuredBlockBody(sourceLines, startIdx);
   var catchIdx = findNextExecutableLine(sourceLines, tryBlock.nextIdx);
   var catchLines = [];
   var endIdx = tryBlock.nextIdx;
@@ -1816,7 +1820,7 @@ function resolveSimulatorRuntimeCalls(expr) {
     return String(readAnalogPinValue(resolveMicroPythonAdcRef(ref), 65535));
   });
 
-  out = out.replace(/\b(?:mpTimePulseUs|time_pulse_us)\s*\(\s*([^,]+?)\s*,\s*([^,]+?)(?:\s*,\s*[^)]+)?\s*\)/g, function(_, ref, value) {
+  out = out.replace(/\b(?:mpTimePulseUs|(?:machine\.|time\.)?time_pulse_us)\s*\(\s*([^,]+?)\s*,\s*([^,]+?)(?:\s*,\s*[^)]+)?\s*\)/g, function(_, ref, value) {
     return String(getUltrasonicPulseDuration(resolveMicroPythonPinRef(ref), parseValue(value)));
   });
 
@@ -1838,6 +1842,10 @@ function resolveSimulatorRuntimeCalls(expr) {
 
   out = out.replace(/\bmpExceptionMessage\s*\(\s*\)/g, function() {
     return JSON.stringify(lastExceptionMessage);
+  });
+
+  out = out.replace(/\bmpExceptionArgs\s*\(\s*\)/g, function() {
+    return JSON.stringify(mpExceptionArgs());
   });
 
   return out;
@@ -1923,7 +1931,10 @@ function translatePythonExpression(expr, state) {
     out = out.replace(classNameRe, 'mpExceptionType()');
 
     var argsRe = new RegExp('\\b' + evar + '\\.args\\b', 'g');
-    out = out.replace(argsRe, 'mpExceptionMessage()');
+    out = out.replace(argsRe, 'mpExceptionArgs()');
+
+    var strRe = new RegExp('\\bstr\\s*\\(\\s*' + evar + '\\s*\\)', 'g');
+    out = out.replace(strRe, 'mpExceptionMessage()');
 
     var bareVarRe = new RegExp('\\b' + evar + '\\b', 'g');
     out = out.replace(bareVarRe, 'mpExceptionMessage()');
@@ -1949,7 +1960,7 @@ function translatePythonExpression(expr, state) {
     return state.dhtVars[name] ? 'mpDHTMeasure("' + name + '")' : match;
   });
 
-  out = out.replace(/\b(?:machine\.)?time_pulse_us\s*\(\s*([^,]+?)\s*,\s*([^,]+?)(?:\s*,\s*[^)]+)?\s*\)/g, function(_, ref, value) {
+  out = out.replace(/\b(?:(?:machine|time)\.)?time_pulse_us\s*\(\s*([^,]+?)\s*,\s*([^,]+?)(?:\s*,\s*[^)]+)?\s*\)/g, function(_, ref, value) {
     return 'mpTimePulseUs(' + translatePythonObjectRef(ref, state) + ', ' + translatePythonExpression(value, state) + ')';
   });
 
@@ -2185,17 +2196,17 @@ function translatePythonStatement(text, state, options) {
     return ['mpPwmDeinit("' + pwmDeinit[1] + '");'];
   }
 
-  var sleepMatch = text.match(/^(?:time|utime)\.sleep\s*\(\s*(.+)\s*\)\s*$/);
+  var sleepMatch = text.match(/^(?:(?:time|utime)\.)?sleep\s*\(\s*(.+)\s*\)\s*$/);
   if (sleepMatch) {
     return ['delay(' + translatePythonExpression(sleepMatch[1], state) + ' * 1000);'];
   }
 
-  var sleepMsMatch = text.match(/^(?:time|utime)\.sleep_ms\s*\(\s*(.+)\s*\)\s*$/);
+  var sleepMsMatch = text.match(/^(?:(?:time|utime)\.)?sleep_ms\s*\(\s*(.+)\s*\)\s*$/);
   if (sleepMsMatch) {
     return ['delay(' + translatePythonExpression(sleepMsMatch[1], state) + ');'];
   }
 
-  var sleepUsMatch = text.match(/^(?:time|utime)\.sleep_us\s*\(\s*(.+)\s*\)\s*$/);
+  var sleepUsMatch = text.match(/^(?:(?:time|utime)\.)?sleep_us\s*\(\s*(.+)\s*\)\s*$/);
   if (sleepUsMatch) {
     return ['delayMicroseconds(' + translatePythonExpression(sleepUsMatch[1], state) + ');'];
   }
@@ -2921,8 +2932,8 @@ function executeLineWithDelay(line, phase) {
     return true;
   }
 
-  if (/^(?:\w+\s*=\s*)?Serial\.read\s*\(\)/.test(l)) {
-    const assignM = l.match(/^(\w+)\s*=\s*Serial\.read\s*\(\)/);
+  if (/^(?:(?:(?:const\s+)?(?:int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+)?\w+\s*=\s*)?Serial\.read\s*\(\)/i.test(l)) {
+    const assignM = l.match(/^(?:(?:const\s+)?(?:int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+)?(\w+)\s*=\s*Serial\.read\s*\(\)/i);
     const val = serialRxBuffer.length > 0 ? serialRxBuffer.shift().charCodeAt(0) : -1;
     if (assignM) variables[assignM[1]] = val;
     return true;
