@@ -1174,7 +1174,7 @@ function evalCondition(cond) {
     .replace(/\bfalse\b/g, 'false');
 
   try {
-    if (/^[\d\s<>=!&|.()+\-*/A-Za-z_"',]+$/.test(cond)) {
+    if (/^[\d\s<>=!&|.()+\-*/%A-Za-z_"',]+$/.test(cond)) {
       return !!Function('"use strict"; return (' + cond + ')')();
     }
   } catch (e) {}
