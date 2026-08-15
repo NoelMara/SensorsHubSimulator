@@ -20,12 +20,13 @@ window.HELP_MODAL_HTML = `
       <button class="help-tab" role="tab" onclick="switchHelpTab('components',this)">&#128230; Components</button>
       <button class="help-tab" role="tab" onclick="switchHelpTab('shortcuts',this)">&#9000; Shortcuts</button>
       <button class="help-tab" role="tab" onclick="switchHelpTab('rules',this)">&#128203; Rules</button>
+      <button class="help-tab" role="tab" onclick="switchHelpTab('beta',this)">&#129514; Beta</button>
     </div>
 
     <div class="help-body">
 
       <div class="help-pane active" id="help-pane-basics">
-        <p class="help-intro">Welcome to <strong>SensorsHub</strong> - a browser-based microcontroller simulator for one-board-at-a-time projects. Follow these steps to build and run your circuit the way this simulator expects.</p>
+        <p class="help-intro">Welcome to <strong>SensorsHub</strong> - a browser-based simulator for beginner ESP32 and Pico projects. Build one circuit at a time, wire the parts, choose the matching code mode, then run your project on the canvas.</p>
 
         <div class="help-step">
           <div class="help-step-badge">1</div>
@@ -39,7 +40,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">2</div>
           <div class="help-step-content">
             <div class="help-step-title">Add sensors, lights, and peripherals</div>
-            <div class="help-step-desc">Browse the <strong>&#128161; Lights</strong>, <strong>&#128225; Sensors</strong>, and <strong>&#128295; Peripherals</strong> tabs in the Build Kit. Place the parts you need near the board. Every component must be <strong>fully wired</strong> before it will react correctly in the simulation.</div>
+            <div class="help-step-desc">Browse <strong>&#128161; Lights</strong>, <strong>&#128225; Sensors</strong>, and <strong>&#128295; Peripherals</strong> in the Build Kit. Place the parts near the board, then wire every required pin so the simulator can read or control them correctly.</div>
           </div>
         </div>
 
@@ -47,7 +48,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">3</div>
           <div class="help-step-content">
             <div class="help-step-title">Wire every required pin</div>
-            <div class="help-step-desc">Make sure the <strong>&#12336; Wire</strong> tool is selected in the toolbar. Click a pin on one component, then click a pin on another to connect them. If a component is missing required pins such as <strong>VCC</strong>, <strong>GND</strong>, or its signal line, the simulator shows a warning and the part may stay marked as not wired.</div>
+            <div class="help-step-desc">Select the <strong>&#12336; Wire</strong> tool, click the first pin, then click the second pin. Most modules need power, ground, and a signal pin. Missing required wires can keep a part inactive or marked as <strong>NOT WIRED</strong>.</div>
           </div>
         </div>
 
@@ -55,7 +56,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">4</div>
           <div class="help-step-content">
             <div class="help-step-title">Write code in the matching mode</div>
-            <div class="help-step-desc">The <strong>{ } Editor</strong> panel is on the left. Edit the default sketch or write your own. Toggle between <strong>Arduino (.ino)</strong> and <strong>MicroPython (.py)</strong> at the top of the editor. Each mode keeps its own saved code.</div>
+            <div class="help-step-desc">Use the <strong>{ } Editor</strong> panel to edit the default sketch or write your own. Switch between <strong>Arduino (.ino)</strong> and <strong>MicroPython (.py)</strong> at the top of the editor. Each mode keeps its own saved code.</div>
           </div>
         </div>
 
@@ -63,7 +64,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">5</div>
           <div class="help-step-content">
             <div class="help-step-title">Run the simulation and monitor output</div>
-            <div class="help-step-desc">Press the green <strong>&#9654; Run</strong> button in the toolbar. Open <strong>&#9000; Serial</strong> to view <code>Serial.println()</code> or <code>print()</code> output. Press <strong>&#9632; Stop</strong> to end the simulation. If the board and code mode do not match, running is blocked and a warning appears.</div>
+            <div class="help-step-desc">Press <strong>&#9654; Run</strong> to start the simulation. Open <strong>&#9000; Serial</strong> to view <code>Serial.println()</code> or <code>print()</code> output, and press <strong>&#9632; Stop</strong> before changing wiring or restarting. If the board and code mode do not match, SensorsHub blocks the run and shows a warning.</div>
           </div>
         </div>
 
@@ -73,13 +74,13 @@ window.HELP_MODAL_HTML = `
       </div>
 
       <div class="help-pane" id="help-pane-wiring">
-        <p class="help-intro">All connections between components are made with wires, and the simulator checks exact required pins before a component becomes active.</p>
+        <p class="help-intro">Wires store exact pin-to-pin connections. SensorsHub checks each component's required pins before that part can respond reliably in the simulation.</p>
 
         <div class="help-step">
           <div class="help-step-badge">&#12336;</div>
           <div class="help-step-content">
             <div class="help-step-title">Draw a wire - Wire tool</div>
-            <div class="help-step-desc">Click the <strong>&#12336; Wire</strong> button in the toolbar or press <kbd>W</kbd>. Click a pin on any component to start a wire, then click a second pin to finish it. The simulator stores that exact pin-to-pin connection.</div>
+            <div class="help-step-desc">Click <strong>&#12336; Wire</strong> or press <kbd>W</kbd>. Click a pin to start a wire, then click another pin to finish the connection.</div>
           </div>
         </div>
 
@@ -87,7 +88,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#10021;</div>
           <div class="help-step-content">
             <div class="help-step-title">Move components - Move tool</div>
-            <div class="help-step-desc">Click the <strong>&#10021; Move</strong> button or press <kbd>M</kbd>. Drag any component to reposition it. Connected wires stretch and follow the component automatically.</div>
+            <div class="help-step-desc">Click <strong>&#10021; Move</strong> or press <kbd>M</kbd>, then drag a component to reposition it. Connected wires follow the part automatically.</div>
           </div>
         </div>
 
@@ -95,7 +96,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#8617;</div>
           <div class="help-step-content">
             <div class="help-step-title">Bend wires around components</div>
-            <div class="help-step-desc">After drawing a wire, drag its midpoint handle to create a bend. This helps keep your layout readable. <strong>Double-click</strong> a bend point to remove it and straighten the segment again.</div>
+            <div class="help-step-desc">Drag a wire midpoint to add a bend and keep your layout readable. <strong>Double-click</strong> a bend point to remove it.</div>
           </div>
         </div>
 
@@ -111,7 +112,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#128465;</div>
           <div class="help-step-content">
             <div class="help-step-title">Clear the entire canvas</div>
-            <div class="help-step-desc">Click <strong>&#128465; Clear</strong> to remove all components and wires at once and start over. Use this when you want a full reset.</div>
+            <div class="help-step-desc">Click <strong>&#128465; Clear</strong> to remove every component and wire from the canvas.</div>
           </div>
         </div>
 
@@ -121,13 +122,13 @@ window.HELP_MODAL_HTML = `
       </div>
 
       <div class="help-pane" id="help-pane-code">
-        <p class="help-intro">The code editor supports both Arduino C++ and MicroPython, but each language mode has a matching board in this simulator.</p>
+        <p class="help-intro">The editor supports Arduino C++ and MicroPython. Each language mode is paired with one board type so beginner projects stay predictable.</p>
 
         <div class="help-step">
           <div class="help-step-badge">&#8644;</div>
           <div class="help-step-content">
             <div class="help-step-title">Switch between Arduino and MicroPython</div>
-            <div class="help-step-desc">Use the toggle at the top of the editor. <strong>Arduino (.ino)</strong> mode works with <strong>ESP32</strong>. <strong>MicroPython (.py)</strong> mode works with <strong>Pico</strong>. Both modes save independently.</div>
+            <div class="help-step-desc">Use the editor toggle to switch languages. <strong>Arduino (.ino)</strong> runs with <strong>ESP32</strong>; <strong>MicroPython (.py)</strong> runs with <strong>Pico</strong>. Both modes save separately.</div>
           </div>
         </div>
 
@@ -143,7 +144,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#9000;</div>
           <div class="help-step-content">
             <div class="help-step-title">Serial monitor</div>
-            <div class="help-step-desc">Click <strong>&#9000; Serial</strong> in the toolbar. Output from <code>Serial.println()</code> in Arduino or <code>print()</code> in MicroPython appears here. You can also type text into the input box and press <strong>SEND</strong> to feed data into the running sketch.</div>
+            <div class="help-step-desc">Click <strong>&#9000; Serial</strong> in the toolbar. Output from <code>Serial.println()</code> in Arduino or <code>print()</code> in MicroPython appears here. You can also type text into the input box and press <strong>SEND</strong> to feed data into the running sketch. Arduino serial input supports common beginner patterns such as <code>char c = Serial.read()</code>, <code>c == 'A'</code>, <code>(char)Serial.read()</code>, and building text with <code>String +=</code>.</div>
           </div>
         </div>
 
@@ -156,22 +157,22 @@ window.HELP_MODAL_HTML = `
         </div>
 
         <div class="help-tip">
-          &#128161; <strong>Libraries supported:</strong> This simulator includes built-in support for <code>DHT</code>, <code>Wire</code>, <code>Adafruit_SSD1306</code>, and <code>Servo</code>. Include them in Arduino mode just like normal sketches.
+          &#128161; <strong>Libraries supported:</strong> This simulator includes built-in support for <code>DHT</code>, <code>Wire</code>, <code>Adafruit_SSD1306</code>, and <code>Servo</code>. Include them in Arduino mode just like normal sketches. Simple casts such as <code>(char)</code> and <code>(int)</code> are supported for serial-command examples.
         </div>
       </div>
 
       <div class="help-pane" id="help-pane-components">
-        <p class="help-intro">Every component in the Build Kit has required simulator pins. Wire them correctly or the part will not respond as expected.</p>
+        <p class="help-intro">Each Build Kit component has simulator-specific pins, readings, and interactions. Use this list as the expected behavior inside SensorsHub.</p>
 
         <div class="help-comp-section-title">Microcontrollers</div>
         <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128187;</span><strong>ESP32</strong></div>
-            <span>Main board for <code>Arduino (.ino)</code> mode. Use its D pins such as <code>D2</code>, <code>D4</code>, <code>D5</code>, <code>D21</code>, <code>D22</code>, and <code>D23</code> for your simulator projects. Analog pins include <code>D32</code> through <code>D35</code>.</span>
+            <span>Main board for <code>Arduino (.ino)</code> mode. Use digital pins such as <code>D2</code>, <code>D4</code>, <code>D5</code>, <code>D21</code>, <code>D22</code>, and <code>D23</code>. Analog input is available on <code>D32</code> to <code>D35</code>.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#129744;</span><strong>Raspberry Pi Pico</strong></div>
-            <span>Main board for <code>MicroPython (.py)</code> mode. Uses <code>GP</code> pins such as <code>GP0</code>, <code>GP1</code>, <code>GP2</code>. Analog-capable pins are <code>GP26</code>, <code>GP27</code>, and <code>GP28</code>. Only one Pico can be placed at a time.</span>
+            <span>Main board for <code>MicroPython (.py)</code> mode. Use <code>GP</code> pins such as <code>GP0</code>, <code>GP1</code>, and <code>GP2</code>. Analog input is available on <code>GP26</code>, <code>GP27</code>, and <code>GP28</code>.</span>
           </div>
         </div>
 
@@ -183,15 +184,15 @@ window.HELP_MODAL_HTML = `
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128994;</span><strong>Green LED</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Same wiring as Red LED. Commonly used for ready or success indicators in a circuit.</span>
+            <span>Required pins: <code>+</code> and <code>-</code>. Wire it like the red LED. Useful for ready, success, or safe-status indicators.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128309;</span><strong>Blue LED</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Same wiring as other LEDs. Useful for signal or status indicators in your demo projects.</span>
+            <span>Required pins: <code>+</code> and <code>-</code>. Wire it like the other LEDs. Useful for signal, connection, or mode indicators.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128993;</span><strong>Yellow LED</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Same wiring as other LEDs. Commonly used for warning or transition states in a circuit.</span>
+            <span>Required pins: <code>+</code> and <code>-</code>. Wire it like the other LEDs. Useful for warning, waiting, or transition states.</span>
           </div>
         </div>
 
@@ -199,43 +200,43 @@ window.HELP_MODAL_HTML = `
         <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128225;</span><strong>HC-SR04 Ultrasonic</strong></div>
-            <span>Required pins: <code>VCC</code>, <code>Trig</code>, <code>Echo</code>, <code>GND</code>. Send a pulse to <code>Trig</code> and measure the duration on <code>Echo</code> using <code>pulseIn()</code>. Use the on-screen slider to simulate distance from <code>2</code> to <code>400 cm</code>.</span>
+            <span>Required pins: <code>VCC</code>, <code>Trig</code>, <code>Echo</code>, <code>GND</code>. Trigger the sensor, then read the echo time with <code>pulseIn()</code>. The distance slider simulates objects from <code>2</code> to <code>400 cm</code>.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#127777;</span><strong>DHT22 Temp &amp; Humidity</strong></div>
-            <span>Required pins: <code>VCC</code>, <code>Data</code>, <code>GND</code>. The module artwork is drawn with the breakout-style <code>+</code>, <code>OUT</code>, <code>-</code> labels so it matches the real sensor body. Use the <code>DHT</code> library with <code>dht.readTemperature()</code> and <code>dht.readHumidity()</code>. In Pico/MicroPython mode, <code>dht.DHT22(Pin(x))</code> works only when the DHT part is actually placed on the canvas and <code>x</code> matches the Data wire. The simulator supports <code>measure()</code>, <code>temperature()</code>, and <code>humidity()</code> too. Adjust the temperature and humidity sliders on the canvas to change simulated values.</span>
+            <span>Required simulator pins: <code>VCC</code>, <code>Data</code>, <code>GND</code>. The drawing labels them as <code>+</code>, <code>OUT</code>, and <code>-</code> to match common breakout modules. Arduino supports <code>dht.readTemperature()</code> and <code>dht.readHumidity()</code>. MicroPython supports <code>measure()</code>, <code>temperature()</code>, and <code>humidity()</code> when the DHT Data wire matches the code pin. Use the canvas sliders to change temperature and humidity.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HC-SR501 PIR Motion Sensor</strong></div>
-            <span>Required pins: <code>GND</code>, <code>OUT</code>, <code>VCC</code>. The on-canvas board is arranged left to right in that order to match the HC-SR501 module photo. In this simulator, <code>OUT</code> goes <code>HIGH</code> when motion is detected. Click the sensor dome on the canvas to toggle the motion state during simulation.</span>
+            <span>Required pins: <code>GND</code>, <code>OUT</code>, <code>VCC</code>. In SensorsHub, <code>OUT</code> reads <code>HIGH</code> when motion is detected and <code>LOW</code> when idle. Click the sensor dome to toggle motion.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#127774;</span><strong>LDR Light Sensor</strong></div>
-            <span>Required pins: <code>S</code>, <code>VCC</code>, <code>GND</code>. Read with <code>analogRead(pin)</code>. Higher values mean more light. Drag the on-screen slider up for bright and down for dark conditions.</span>
+            <span>Required pins: <code>S</code>, <code>VCC</code>, <code>GND</code>. Read <code>S</code> with <code>analogRead()</code>. Higher values mean brighter light. Use the slider to change the simulated light level.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128280;</span><strong>Button</strong></div>
-            <span>Required pins: <code>P1</code> and <code>P2</code>. In this simulator, <code>digitalRead()</code> returns <code>LOW</code> while the button is held and <code>HIGH</code> when released. Hold down the button on the canvas to keep it pressed.</span>
+            <span>Required pins: <code>P1</code> and <code>P2</code>. In SensorsHub, <code>digitalRead()</code> returns <code>LOW</code> while pressed and <code>HIGH</code> when released. Hold the canvas button to keep it pressed.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128433;</span><strong>Joystick (KY-023)</strong></div>
-            <span>Required pins: <code>VCC</code>, <code>GND</code>, <code>VRX</code>, <code>VRY</code>, <code>SW</code>. Read <code>VRX</code> and <code>VRY</code> with <code>analogRead()</code> for axis values from <code>0</code> to <code>4095</code>. Click the joystick cap on the canvas to toggle the <code>SW</code> button state.</span>
+            <span>Required pins: <code>VCC</code>, <code>GND</code>, <code>VRX</code>, <code>VRY</code>, <code>SW</code>. Read <code>VRX</code> and <code>VRY</code> with <code>analogRead()</code> for values from <code>0</code> to <code>4095</code>. Click the joystick cap to toggle <code>SW</code>; pressed reads <code>LOW</code>.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#127897;</span><strong>KY-004 Key Switch</strong></div>
-            <span>Required pins: <code>S</code>, <code>VCC</code>, <code>GND</code>. In this simulator, <code>digitalRead()</code> returns <code>LOW</code> when pressed and <code>HIGH</code> when released. Click the cap on the canvas to toggle during simulation.</span>
+            <span>Required pins: <code>S</code>, <code>VCC</code>, <code>GND</code>. In SensorsHub, <code>S</code> reads <code>LOW</code> when pressed and <code>HIGH</code> when released. Click the cap to toggle it.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128243;</span><strong>SW-420 Vibration Sensor</strong></div>
-            <span>Required pins: <code>DO</code>, <code>GND</code>, <code>VCC</code>. In this simulator, <code>digitalRead()</code> returns <code>HIGH</code> when vibration is detected and <code>LOW</code> when stable. Click the sensor body on the canvas to toggle the vibration state.</span>
+            <span>Required pins: <code>DO</code>, <code>GND</code>, <code>VCC</code>. In SensorsHub, <code>DO</code> reads <code>HIGH</code> when vibration is detected and <code>LOW</code> when stable. Click the sensor body to toggle vibration.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128293;</span><strong>Flame Sensor</strong></div>
-            <span>Required pins: <code>AO</code>, <code>DO</code>, <code>GND</code>, <code>VCC</code>. In this simulator, <code>DO</code> goes <code>LOW</code> when flame is detected. Use <code>analogRead()</code> on <code>AO</code> for intensity. Click the sensor body or drag the analog slider to simulate flame presence.</span>
+            <span>Required pins: <code>AO</code>, <code>DO</code>, <code>GND</code>, <code>VCC</code>. In SensorsHub, <code>DO</code> reads <code>LOW</code> when flame is detected. Read <code>AO</code> with <code>analogRead()</code> for intensity. Click the sensor or use the slider to change flame level.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>KY-032 IR Obstacle</strong></div>
-            <span>Required pins: <code>EN</code>, <code>VCC</code>, <code>OUT</code>, <code>GND</code>. In this simulator, <code>OUT</code> goes <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when the path is clear. Click the sensor on the canvas to toggle obstacle detection.</span>
+            <span>Required pins: <code>OUT</code>, <code>VCC</code>, <code>GND</code>. The canvas also shows <code>EN</code>, but the simulator checks <code>OUT</code>, power, and ground. <code>OUT</code> reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
           </div>
         </div>
 
@@ -243,20 +244,20 @@ window.HELP_MODAL_HTML = `
         <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#9881;</span><strong>Servo Motor</strong></div>
-            <span>Required pins: <code>PWM</code>, <code>VCC</code>, <code>GND</code>. Control with the <code>Servo</code> library using <code>servo.write(angle)</code> where angle is <code>0</code> to <code>180</code>. The horn on the canvas rotates to show the current angle. Drag the on-screen slider to test manually.</span>
+            <span>Required pins: <code>PWM</code>, <code>VCC</code>, <code>GND</code>. In Arduino mode, control it with <code>Servo</code> and <code>servo.write(angle)</code> from <code>0</code> to <code>180</code>. PWM duty in MicroPython maps to the displayed angle. The canvas horn rotates live.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128276;</span><strong>Buzzer</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Use <code>tone(pin, frequency)</code> to play a sound and <code>noTone(pin)</code> to stop. You can also use <code>digitalWrite(pin, HIGH)</code> for a simple on/off beep. The buzzer icon changes when active.</span>
+            <span>Required pins: <code>+</code> and <code>-</code>. Use <code>tone(pin, frequency)</code> to play, <code>noTone(pin)</code> to stop, or <code>digitalWrite(pin, HIGH)</code> for a simple on/off beep. The canvas icon changes while active.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128223;</span><strong>OLED Display (SSD1306)</strong></div>
-            <span>Required pins: <code>GND</code>, <code>VCC</code>, <code>SCL</code>, <code>SDA</code>. Use the <code>Adafruit_SSD1306</code> library to draw text and graphics. Connect <code>SCL</code> to <code>D22</code> and <code>SDA</code> to <code>D21</code> on ESP32. The simulated display updates live as your sketch runs.</span>
+            <span>Required pins: <code>GND</code>, <code>VCC</code>, <code>SCL</code>, <code>SDA</code>. Use <code>Wire</code> and <code>Adafruit_SSD1306</code> in Arduino mode. On ESP32, the common simulator wiring is <code>SCL</code> to <code>D22</code> and <code>SDA</code> to <code>D21</code>. The display updates as your sketch runs.</span>
           </div>
         </div>
 
         <div class="help-tip">
-          &#128161; <strong>Simulator tip:</strong> The output logic shown in each component card above reflects how this simulator behaves, not a universal rule. Real modules from different manufacturers may behave differently — always check the datasheet or test your physical module before assuming HIGH or LOW.
+          &#128161; <strong>Simulator tip:</strong> The output logic shown above describes SensorsHub behavior. Real modules can vary by manufacturer, so check your datasheet or test the physical module before assuming <code>HIGH</code> or <code>LOW</code>.
         </div>
       </div>
 
@@ -278,7 +279,7 @@ window.HELP_MODAL_HTML = `
 
         <div class="help-shortcut-section">Mobile</div>
         <div class="help-shortcut-table">
-          <div class="help-shortcut-row"><div class="help-shortcut-keys">&#128204; Studio tab</div><div class="help-shortcut-label">Switch to canvas view — tap the Build Kit panel to add components</div></div>
+          <div class="help-shortcut-row"><div class="help-shortcut-keys">&#128204; Studio tab</div><div class="help-shortcut-label">Switch to canvas view - tap the Build Kit panel to add components</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">{ } Code tab</div><div class="help-shortcut-label">Switch to code editor view</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Pinch gesture</div><div class="help-shortcut-label">Zoom in / out on the canvas</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Tap a pin</div><div class="help-shortcut-label">Show pin tooltip details</div></div>
@@ -329,7 +330,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">5</div>
           <div class="help-step-content">
             <div class="help-step-title">Keep MicroPython code simple</div>
-            <div class="help-step-desc">For the best results, write simple MicroPython using one main <code>while True:</code> loop, one statement per line, and basic <code>if / elif / else</code> logic. Avoid advanced features such as <code>for</code> loops, classes, <code>try/except</code>, and complex helper functions unless you have tested them in this simulator.</div>
+            <div class="help-step-desc">For the best results, write simple MicroPython using one main <code>while True:</code> loop, one statement per line, and basic <code>if / elif / else</code> logic. Basic <code>try/except</code> is supported for simulator/runtime errors, including inside simple <code>if</code> blocks. Avoid advanced features such as classes and complex helper functions unless you have tested them in this simulator.</div>
           </div>
         </div>
 
@@ -337,7 +338,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">6</div>
           <div class="help-step-content">
             <div class="help-step-title">Use simulator-supported commands</div>
-            <div class="help-step-desc">MicroPython support covers: <code>Pin</code>, <code>value()</code>, <code>ADC.read_u16()</code>, <code>PWM.freq()</code>, <code>PWM.duty_u16()</code>, <code>time.sleep()</code>, <code>time.sleep_ms()</code>, <code>time.sleep_us()</code>, <code>print()</code>, and <code>time_pulse_us()</code>. Arduino support follows built-in simulator functions and the included libraries.</div>
+            <div class="help-step-desc">MicroPython support covers: <code>Pin</code>, <code>value()</code>, <code>ADC.read_u16()</code>, <code>PWM.freq()</code>, <code>PWM.duty_u16()</code>, <code>time.sleep()</code>, <code>time.sleep_ms()</code>, <code>time.sleep_us()</code>, <code>print()</code>, <code>time_pulse_us()</code>, and simple <code>try/except</code>. Arduino support follows built-in simulator functions, common serial input patterns, simple casts, and the included libraries.</div>
           </div>
         </div>
 
@@ -358,7 +359,48 @@ window.HELP_MODAL_HTML = `
         </div>
 
         <div class="help-tip">
-          &#128161; <strong>Quick reminder:</strong> If a reading always stays at <code>0</code>, first check the board mode, then check the exact pin numbers, then confirm that every required wire for that component is connected. If readings seem inverted, your physical module may use different output logic than what is shown in the simulator — check the datasheet for your specific module.
+          &#128161; <strong>Quick reminder:</strong> If a reading always stays at <code>0</code>, first check the board mode, then check the exact pin numbers, then confirm that every required wire for that component is connected. If readings seem inverted, your physical module may use different output logic than SensorsHub - check the datasheet for your specific module.
+        </div>
+      </div>
+
+
+      <div class="help-pane" id="help-pane-beta">
+        <p class="help-intro"><strong>Beta notice:</strong> SensorsHub is actively being improved. Most beginner projects should work, but some features are still being tested and may not behave exactly like real hardware yet.</p>
+
+        <div class="help-step">
+          <div class="help-step-badge">B1</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Some language features are partial</div>
+            <div class="help-step-desc">SensorsHub focuses on common Arduino and MicroPython patterns used in beginner projects. Advanced C++ syntax, complex Python structures, custom classes, and unusual library behavior may not be fully simulated yet.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-badge">B2</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Serial input is still expanding</div>
+            <div class="help-step-desc">Arduino serial input supports <code>Serial.available()</code>, <code>Serial.read()</code>, character comparisons, simple casts such as <code>(char)</code> and <code>(int)</code>, and basic <code>String +=</code> text building. More serial patterns may be added as projects need them.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-badge">B3</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Wiring warnings are simulator guidance</div>
+            <div class="help-step-desc">If a matching component is placed but miswired, SensorsHub tries to show a helpful warning. If no matching component is placed at all, writing to that pin may stay silent, similar to real hardware where the board cannot know what is connected externally.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-badge">B4</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Use real hardware for final checks</div>
+            <div class="help-step-desc">Use SensorsHub to learn, debug wiring logic, and test beginner code quickly. Before submitting or building a final project, test again on the actual ESP32 or Pico with your real modules.</div>
+          </div>
+        </div>
+
+        <div class="help-tip">
+          &#128161; <strong>Helpful feedback:</strong> If a project works on real hardware but not in SensorsHub, note the component, wiring, and exact code pattern. Those reports help improve the simulator.
         </div>
       </div>
 

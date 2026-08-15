@@ -319,8 +319,15 @@ function resolvePin(arg) {
 
 function parseValue(str) {
   str = String(str || '').trim().replace(/;$/, '');
+  str = applySimpleCastExpression(str);
 
   if (variables[str] !== undefined) return variables[str];
+  if (
+    (str.startsWith('"') && str.endsWith('"')) ||
+    (str.startsWith("'") && str.endsWith("'"))
+  ) {
+    return str.slice(1, -1);
+  }
   if (str === 'true') return true;
   if (str === 'false') return false;
   if (/^0x[0-9a-f]+$/i.test(str)) return parseInt(str, 16);
@@ -340,6 +347,7 @@ function parseValue(str) {
 
 function parseContent(content) {
   content = resolveSimulatorRuntimeCalls(String(content || '').trim());
+  content = applySimpleCastExpression(content);
   content = content.replace(/^F\((.+)\)$/, '$1');
 
   content = content.replace(/String\(([^)]+)\)/g, function(_, inner) {
@@ -383,9 +391,16 @@ function parseContent(content) {
 
 function evaluateLiteral(str) {
   str = String(str || '').trim().replace(/;$/, '');
+  str = applySimpleCastExpression(str);
   str = str.replace(/^F\((.+)\)$/, '$1');
 
   if (variables[str] !== undefined) return variables[str];
+  if (
+    (str.startsWith('"') && str.endsWith('"')) ||
+    (str.startsWith("'") && str.endsWith("'"))
+  ) {
+    return str.slice(1, -1);
+  }
   if (str === 'true') return true;
   if (str === 'false') return false;
   if (/^0x[0-9a-f]+$/i.test(str)) return parseInt(str, 16);
@@ -1359,6 +1374,12 @@ function collectStructuredBlockBody(sourceLines, headerIdx) {
     if (depth === 0 && isCatchStartLine(bl)) break;
 
     if (depth === 0 && isStandaloneClosingBraceLine(bl)) {
+      var nextLine = findNextExecutableLine(sourceLines, i + 1);
+      if (nextLine < sourceLines.length && isCatchStartLine(sourceLines[nextLine])) {
+        bodyLines.push(bl);
+        i++;
+        continue;
+      }
       i++;
       break;
     }
@@ -1684,6 +1705,9 @@ function jumpToCatchForRuntimeError(err, sourceLines) {
 
 function evaluateMath(expr) {
   expr = String(expr || '').trim().replace(/;$/, '');
+  if (/^\(\s*char\s*\)/i.test(expr)) return null;
+  expr = applySimpleCastExpression(expr);
+  if (typeof expr === 'number') return expr;
   let e = normalizeEvaluatorExpression(expr);
 
   for (const k in variables) {
@@ -1809,6 +1833,53 @@ function stripSimpleWrappers(expr) {
   return out;
 }
 
+function applySimpleCastValue(type, value) {
+  var castType = String(type || '').toLowerCase();
+
+  if (castType === 'char') {
+    if (typeof value === 'number') return value < 0 ? '' : String.fromCharCode(value);
+    var text = String(value);
+    return text.length > 0 ? text.charAt(0) : '';
+  }
+
+  if (castType === 'int' || castType === 'long' || castType === 'byte') {
+    if (typeof value === 'string' && value.length === 1) return value.charCodeAt(0);
+    var intValue = parseInt(value, 10);
+    return isNaN(intValue) ? 0 : intValue;
+  }
+
+  if (castType === 'float' || castType === 'double') {
+    var floatValue = parseFloat(value);
+    return isNaN(floatValue) ? 0 : floatValue;
+  }
+
+  return value;
+}
+
+function applySimpleCastExpression(expr) {
+  var source = String(expr || '').trim();
+  var m = source.match(/^\(\s*(char|int|long|byte|float|double)\s*\)\s*(.+)$/i);
+  if (!m) return expr;
+
+  var token = m[2].trim();
+  var value;
+
+  if (/^Serial\.read\s*\(\s*\)$/i.test(token)) {
+    value = serialRxBuffer.length > 0 ? serialRxBuffer.shift().charCodeAt(0) : -1;
+  } else if (variables[token] !== undefined) {
+    value = variables[token];
+  } else if (
+    (token.startsWith('"') && token.endsWith('"')) ||
+    (token.startsWith("'") && token.endsWith("'"))
+  ) {
+    value = token.slice(1, -1);
+  } else {
+    var numeric = evaluateMath(token);
+    value = numeric !== null ? numeric : parseValue(token);
+  }
+
+  return applySimpleCastValue(m[1], value);
+}
 function resolveSimulatorRuntimeCalls(expr) {
   var out = String(expr || '');
 
@@ -2933,9 +3004,10 @@ function executeLineWithDelay(line, phase) {
   }
 
   if (/^(?:(?:(?:const\s+)?(?:int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+)?\w+\s*=\s*)?Serial\.read\s*\(\)/i.test(l)) {
-    const assignM = l.match(/^(?:(?:const\s+)?(?:int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+)?(\w+)\s*=\s*Serial\.read\s*\(\)/i);
-    const val = serialRxBuffer.length > 0 ? serialRxBuffer.shift().charCodeAt(0) : -1;
-    if (assignM) variables[assignM[1]] = val;
+    const assignM = l.match(/^(?:(?:const\s+)?(?:(int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+))?(\w+)\s*=\s*Serial\.read\s*\(\)/i);
+    const code = serialRxBuffer.length > 0 ? serialRxBuffer.shift().charCodeAt(0) : -1;
+    const val = assignM && /^char$/i.test(assignM[1] || '') ? applySimpleCastValue('char', code) : code;
+    if (assignM) variables[assignM[2]] = val;
     return true;
   }
 
