@@ -14,18 +14,18 @@ window.HELP_MODAL_HTML = `
     </div>
 
     <div class="help-tabs" role="tablist">
-      <button class="help-tab active" role="tab" onclick="switchHelpTab('basics',this)">&#128640; Basics</button>
+      <button class="help-tab active" role="tab" onclick="switchHelpTab('beta',this)">&#129514; Beta</button>
+      <button class="help-tab" role="tab" onclick="switchHelpTab('basics',this)">&#128640; Basics</button>
       <button class="help-tab" role="tab" onclick="switchHelpTab('wiring',this)">&#12336; Wiring</button>
       <button class="help-tab" role="tab" onclick="switchHelpTab('code',this)">{ } Code</button>
       <button class="help-tab" role="tab" onclick="switchHelpTab('components',this)">&#128230; Components</button>
       <button class="help-tab" role="tab" onclick="switchHelpTab('shortcuts',this)">&#9000; Shortcuts</button>
       <button class="help-tab" role="tab" onclick="switchHelpTab('rules',this)">&#128203; Rules</button>
-      <button class="help-tab" role="tab" onclick="switchHelpTab('beta',this)">&#129514; Beta</button>
     </div>
 
     <div class="help-body">
 
-      <div class="help-pane active" id="help-pane-basics">
+      <div class="help-pane" id="help-pane-basics">
         <p class="help-intro">Welcome to <strong>SensorsHub</strong> - a browser-based simulator for beginner ESP32 and Pico projects. Build one circuit at a time, wire the parts, choose the matching code mode, then run your project on the canvas.</p>
 
         <div class="help-step">
@@ -364,29 +364,29 @@ window.HELP_MODAL_HTML = `
       </div>
 
 
-      <div class="help-pane" id="help-pane-beta">
-        <p class="help-intro"><strong>Beta notice:</strong> SensorsHub is actively being improved. Most beginner projects should work, but some features are still being tested and may not behave exactly like real hardware yet.</p>
+      <div class="help-pane active" id="help-pane-beta">
+        <p class="help-intro"><strong>Beta notice:</strong> SensorsHub is still a prototype for learning and classroom practice. It is useful for testing beginner circuits and code, but it may not match real hardware perfectly in every situation.</p>
 
         <div class="help-step">
           <div class="help-step-badge">B1</div>
           <div class="help-step-content">
-            <div class="help-step-title">Some language features are partial</div>
-            <div class="help-step-desc">SensorsHub focuses on common Arduino and MicroPython patterns used in beginner projects. Advanced C++ syntax, complex Python structures, custom classes, and unusual library behavior may not be fully simulated yet.</div>
+            <div class="help-step-title">Built for beginner project patterns</div>
+            <div class="help-step-desc">SensorsHub focuses on common Arduino and MicroPython lessons: LEDs, buttons, sensors, serial input, simple conditions, loops, and basic component control. Advanced C++ syntax, complex Python structures, custom classes, and unusual library behavior may not be fully simulated yet.</div>
           </div>
         </div>
 
         <div class="help-step">
           <div class="help-step-badge">B2</div>
           <div class="help-step-content">
-            <div class="help-step-title">Serial input is still expanding</div>
-            <div class="help-step-desc">Arduino serial input supports <code>Serial.available()</code>, <code>Serial.read()</code>, character comparisons, simple casts such as <code>(char)</code> and <code>(int)</code>, and basic <code>String +=</code> text building. More serial patterns may be added as projects need them.</div>
+            <div class="help-step-title">Some features are still being improved</div>
+            <div class="help-step-desc">Serial input, MicroPython conversion, sensor timing, and library behavior are being improved as more student examples are tested. If a simple sketch behaves differently from real hardware, it may be a simulator limitation rather than a mistake in your code.</div>
           </div>
         </div>
 
         <div class="help-step">
           <div class="help-step-badge">B3</div>
           <div class="help-step-content">
-            <div class="help-step-title">Wiring warnings are simulator guidance</div>
+            <div class="help-step-title">Wiring warnings are learning guides</div>
             <div class="help-step-desc">If a matching component is placed but miswired, SensorsHub tries to show a helpful warning. If no matching component is placed at all, writing to that pin may stay silent, similar to real hardware where the board cannot know what is connected externally.</div>
           </div>
         </div>
@@ -394,13 +394,13 @@ window.HELP_MODAL_HTML = `
         <div class="help-step">
           <div class="help-step-badge">B4</div>
           <div class="help-step-content">
-            <div class="help-step-title">Use real hardware for final checks</div>
-            <div class="help-step-desc">Use SensorsHub to learn, debug wiring logic, and test beginner code quickly. Before submitting or building a final project, test again on the actual ESP32 or Pico with your real modules.</div>
+            <div class="help-step-title">Always final-check on real hardware</div>
+            <div class="help-step-desc">Use SensorsHub to learn, debug wiring logic, and test beginner code quickly. Before submitting, presenting, or building a final project, test again on the actual ESP32 or Pico with your real modules.</div>
           </div>
         </div>
 
         <div class="help-tip">
-          &#128161; <strong>Helpful feedback:</strong> If a project works on real hardware but not in SensorsHub, note the component, wiring, and exact code pattern. Those reports help improve the simulator.
+          &#128161; <strong>Helpful feedback:</strong> If a beginner project works on real hardware but not in SensorsHub, note the component, wiring, and exact code pattern. Those reports help make the simulator better.
         </div>
       </div>
 
@@ -411,7 +411,7 @@ window.HELP_MODAL_HTML = `
         <span class="help-footer-brand">SensorsHub</span>
         <span class="help-footer-uni">University of Eastern Pangasinan</span>
       </div>
-      <button class="btn green" onclick="closeHelp()">Got it &#10003;</button>
+      <button class="btn green help-footer-btn" onclick="closeHelp()">Got it &#10003;</button>
     </div>
 
   </div>

@@ -1800,6 +1800,40 @@ function serialWrite(msg, newLine) {
   }
 }
 
+function readSerialParseInt() {
+  while (serialRxBuffer.length > 0 && /\s/.test(serialRxBuffer[0])) {
+    serialRxBuffer.shift();
+  }
+
+  var originalLength = serialRxBuffer.length;
+  var sign = '';
+  if (serialRxBuffer.length > 0 && (serialRxBuffer[0] === '-' || serialRxBuffer[0] === '+')) {
+    sign = serialRxBuffer.shift();
+  }
+
+  var digits = '';
+  while (serialRxBuffer.length > 0 && /\d/.test(serialRxBuffer[0])) {
+    digits += serialRxBuffer.shift();
+  }
+
+  if (!digits) {
+    while (serialRxBuffer.length > 0 && !/\s/.test(serialRxBuffer[0])) {
+      serialRxBuffer.shift();
+    }
+    while (serialRxBuffer.length > 0 && /\s/.test(serialRxBuffer[0])) {
+      serialRxBuffer.shift();
+    }
+    if (serialRxBuffer.length === originalLength && serialRxBuffer.length > 0) {
+      serialRxBuffer.shift();
+    }
+    return 0;
+  }
+  while (serialRxBuffer.length > 0 && /\s/.test(serialRxBuffer[0])) {
+    serialRxBuffer.shift();
+  }
+  return parseInt(sign + digits, 10);
+}
+
 function resolveLibraryArgValue(arg) {
   if (typeof arg !== 'string') return arg;
 
@@ -1934,6 +1968,10 @@ function applySimpleCastExpression(expr) {
 }
 function resolveSimulatorRuntimeCalls(expr) {
   var out = String(expr || '');
+
+  out = out.replace(/\bSerial\.parseInt\s*\(\s*\)/gi, function() {
+    return String(readSerialParseInt());
+  });
 
   out = out.replace(/\bmpPinRead\s*\(\s*([^)]+?)\s*\)/g, function(_, ref) {
     return String(readDigitalPinValue(resolveMicroPythonPinRef(ref)));
@@ -3060,6 +3098,13 @@ function executeLineWithDelay(line, phase) {
     const code = serialRxBuffer.length > 0 ? serialRxBuffer.shift().charCodeAt(0) : -1;
     const val = assignM && /^char$/i.test(assignM[1] || '') ? applySimpleCastValue('char', code) : code;
     if (assignM) variables[assignM[2]] = val;
+    return true;
+  }
+
+  if (/^(?:(?:(?:const\s+)?(?:int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+)?\w+\s*=\s*)?Serial\.parseInt\s*\(\)/i.test(l)) {
+    const assignM = l.match(/^(?:(?:const\s+)?(?:(int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+))?(\w+)\s*=\s*Serial\.parseInt\s*\(\)/i);
+    const val = readSerialParseInt();
+    if (assignM) variables[assignM[2]] = assignM && /^char$/i.test(assignM[1] || '') ? applySimpleCastValue('char', val) : val;
     return true;
   }
 
