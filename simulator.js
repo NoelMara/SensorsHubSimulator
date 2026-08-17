@@ -399,7 +399,7 @@ function evaluateLiteral(str) {
     (str.startsWith('"') && str.endsWith('"')) ||
     (str.startsWith("'") && str.endsWith("'"))
   ) {
-    return str.slice(1, -1);
+    return decodeQuotedLiteral(str);
   }
   if (str === 'true') return true;
   if (str === 'false') return false;
@@ -494,9 +494,39 @@ function unquoteToken(token) {
     (token.startsWith('"') && token.endsWith('"')) ||
     (token.startsWith("'") && token.endsWith("'"))
   ) {
-    return token.slice(1, -1);
+    return decodeQuotedLiteral(token);
   }
   return token;
+}
+
+function decodeQuotedLiteral(token) {
+  var source = String(token || '').trim();
+  if (source.length < 2) return source;
+
+  var quote = source.charAt(0);
+  if ((quote !== '"' && quote !== "'") || source.charAt(source.length - 1) !== quote) {
+    return source;
+  }
+
+  var body = source.slice(1, -1);
+  try {
+    return JSON.parse('"' + body
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\\\\([nrtbfv0"'\\])/g, '\\$1') + '"');
+  } catch (err) {
+    return body
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\\b/g, '\b')
+      .replace(/\\f/g, '\f')
+      .replace(/\\v/g, '\v')
+      .replace(/\\0/g, '\0')
+      .replace(/\\'/g, "'")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
 }
 
 function parseBooleanLike(value) {
@@ -526,6 +556,12 @@ function evaluateBooleanLikeExpression(expr) {
   } catch (err) {}
 
   return parseBooleanLike(parseValue(normalized));
+}
+
+function normalizeQuotedLiteralsForEvaluator(expr) {
+  return String(expr || '').replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"/g, function(token) {
+    return JSON.stringify(decodeQuotedLiteral(token));
+  });
 }
 
 function setPinModeValue(pin, mode) {
@@ -1187,9 +1223,10 @@ function evalCondition(cond) {
     .replace(/\bLOW\b/g, '0')
     .replace(/\btrue\b/g, 'true')
     .replace(/\bfalse\b/g, 'false');
+  cond = normalizeQuotedLiteralsForEvaluator(cond);
 
   try {
-    if (/^[\d\s<>=!&|.()+\-*/%A-Za-z_"',]+$/.test(cond)) {
+    if (/^[\d\s<>=!&|.()+\-*/%A-Za-z_"',\\]+$/.test(cond)) {
       return !!Function('"use strict"; return (' + cond + ')')();
     }
   } catch (e) {}
@@ -1207,58 +1244,73 @@ function executeStructuredLines(sourceLines, phase, blockPath) {
 
 function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
   for (let i = startIdx || 0; i < sourceLines.length;) {
-    const l = String(sourceLines[i] || '').trim();
+    try {
+      const l = String(sourceLines[i] || '').trim();
 
-    if (!l || l === '{' || l === '}' || l === '};' || l.startsWith('//')) {
+      if (!l || l === '{' || l === '}' || l === '};' || l.startsWith('//')) {
+        i++;
+        continue;
+      }
+
+      if (l === 'return' || l.startsWith('return ') || l.startsWith('return;')) {
+        return { nextIdx: i, returned: true };
+      }
+
+      const markerNext = handleTryMarkerLine(l, sourceLines, i);
+      if (markerNext !== null) {
+        i = markerNext;
+        continue;
+      }
+
+      if (/^try\s*\{?\s*$/.test(l)) {
+        const consumed = handleTryBlock(i, sourceLines, phase, blockPath);
+        if (consumed > 0) {
+          if (isDelayActive) return { nextIdx: i, delayed: true };
+          i += consumed;
+          continue;
+        }
+      }
+
+      if (/^for\s*\(/.test(l)) {
+       const consumed = handleForBlock(i, sourceLines, phase, blockPath);
+        if (consumed > 0) {
+          if (isDelayActive) return { nextIdx: i, delayed: true };
+          i += consumed;
+          continue;
+        }
+      }
+
+      if (/^while\s*\(/.test(l)) {
+        const consumed = handleWhileBlock(i, sourceLines, phase, blockPath);
+        if (consumed > 0) {
+          if (isDelayActive) return { nextIdx: i, delayed: true };
+          i += consumed;
+          continue;
+        }
+      }
+
+      if (/^if\s*\(/.test(l)) {
+        const consumed = handleIfBlock(i, sourceLines, phase, blockPath);
+        if (consumed > 0) {
+          if (isDelayActive) return { nextIdx: i, delayed: true };
+          i += consumed;
+          continue;
+        }
+      }
+
+      const ok = executeLineWithDelay(l, phase);
+      if (ok === false) return { nextIdx: i, stopped: true };
+      if (isDelayActive) return { nextIdx: i + 1, delayed: true };
+
       i++;
-      continue;
-    }
-
-    if (l === 'return' || l.startsWith('return ') || l.startsWith('return;')) {
-      return { nextIdx: i, returned: true };
-    }
-
-    if (/^try\s*\{?\s*$/.test(l)) {
-      const consumed = handleTryBlock(i, sourceLines, phase, blockPath);
-      if (consumed > 0) {
-        if (isDelayActive) return { nextIdx: i, delayed: true };
-        i += consumed;
+    } catch (err) {
+      const catchIdx = jumpToCatchForRuntimeError(err, sourceLines);
+      if (catchIdx >= 0) {
+        i = catchIdx;
         continue;
       }
+      throw err;
     }
-
-    if (/^for\s*\(/.test(l)) {
-     const consumed = handleForBlock(i, sourceLines, phase, blockPath);
-      if (consumed > 0) {
-        if (isDelayActive) return { nextIdx: i, delayed: true };
-        i += consumed;
-        continue;
-      }
-    }
-
-    if (/^while\s*\(/.test(l)) {
-      const consumed = handleWhileBlock(i, sourceLines, phase, blockPath);
-      if (consumed > 0) {
-        if (isDelayActive) return { nextIdx: i, delayed: true };
-        i += consumed;
-        continue;
-      }
-    }
-
-    if (/^if\s*\(/.test(l)) {
-      const consumed = handleIfBlock(i, sourceLines, phase, blockPath);
-      if (consumed > 0) {
-        if (isDelayActive) return { nextIdx: i, delayed: true };
-        i += consumed;
-        continue;
-      }
-    }
-
-    const ok = executeLineWithDelay(l, phase);
-    if (ok === false) return { nextIdx: i, stopped: true };
-    if (isDelayActive) return { nextIdx: i + 1, delayed: true };
-
-    i++;
   }
 
   return { nextIdx: sourceLines.length };
