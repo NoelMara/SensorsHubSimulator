@@ -480,28 +480,75 @@ function initTooltip() {
 // ==========================================
 // DRAW LOOP
 // ==========================================
-function draw() {
-  if (!ctx || !canvas) return;
+function getWirePoints(w) {
+  return [{ x: w.x1, y: w.y1 }].concat(w.waypoints || []).concat([{ x: w.x2, y: w.y2 }]);
+}
 
-  ctx.clearRect(0, 0, canvasLogicalWidth, canvasLogicalHeight);
+function drawWirePath(w) {
+  var col = w.color || '#4d9fff';
+  var pts = getWirePoints(w);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-  ctx.lineWidth = 0.5;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
-  for (var gx = 0; gx < canvasLogicalWidth; gx += 24) {
-    ctx.beginPath();
-    ctx.moveTo(gx, 0);
-    ctx.lineTo(gx, canvasLogicalHeight);
-    ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.38)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function updateWireHandles(w) {
+  var pts = getWirePoints(w);
+  w._handles = [];
+
+  for (var i = 0; i < pts.length - 1; i++) {
+    w._handles.push({
+      x: (pts[i].x + pts[i + 1].x) / 2,
+      y: (pts[i].y + pts[i + 1].y) / 2,
+      segIndex: i
+    });
   }
+}
 
-  for (var gy = 0; gy < canvasLogicalHeight; gy += 24) {
+function drawWireControls(w) {
+  var col = w.color || '#4d9fff';
+
+  (w.waypoints || []).forEach(function(wp) {
+    ctx.fillStyle = 'rgba(255,255,255,0.86)';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, gy);
-    ctx.lineTo(canvasLogicalWidth, gy);
+    ctx.arc(wp.x, wp.y, 3.5, 0, Math.PI * 2);
+    ctx.fill();
     ctx.stroke();
-  }
+  });
 
+  (w._handles || []).forEach(function(h) {
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.rotate(Math.PI / 4);
+    ctx.strokeStyle = col + '88';
+    ctx.fillStyle = 'rgba(6,12,20,0.58)';
+    ctx.lineWidth = 1;
+    ctx.fillRect(-3.5, -3.5, 7, 7);
+    ctx.strokeRect(-3.5, -3.5, 7, 7);
+    ctx.restore();
+  });
+}
+
+function drawAllComponents() {
   components.forEach(function(c) {
     if      (c.type === 'esp32')      drawESP32(c);
     else if (c.type === 'pico')       drawPico(c);
@@ -525,56 +572,39 @@ function draw() {
       drawNotWiredWarning(c);
     }
   });
+}
+
+function draw() {
+  if (!ctx || !canvas) return;
+
+  ctx.clearRect(0, 0, canvasLogicalWidth, canvasLogicalHeight);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+  ctx.lineWidth = 0.5;
+
+  for (var gx = 0; gx < canvasLogicalWidth; gx += 24) {
+    ctx.beginPath();
+    ctx.moveTo(gx, 0);
+    ctx.lineTo(gx, canvasLogicalHeight);
+    ctx.stroke();
+  }
+
+  for (var gy = 0; gy < canvasLogicalHeight; gy += 24) {
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(canvasLogicalWidth, gy);
+    ctx.stroke();
+  }
 
   wires.forEach(function(w) {
-    var col = w.color || '#4d9fff';
-
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(w.x1, w.y1);
-    (w.waypoints || []).forEach(function(wp) {
-      ctx.lineTo(wp.x, wp.y);
-    });
-    ctx.lineTo(w.x2, w.y2);
-    ctx.stroke();
-
-    ctx.fillStyle = col;
-    ctx.beginPath();
-    ctx.arc(w.x1, w.y1, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(w.x2, w.y2, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    (w.waypoints || []).forEach(function(wp) {
-      ctx.fillStyle = '#fff';
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(wp.x, wp.y, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    });
-
-    var pts = [{ x: w.x1, y: w.y1 }].concat(w.waypoints || []).concat([{ x: w.x2, y: w.y2 }]);
-    w._handles = [];
-
-    for (var i = 0; i < pts.length - 1; i++) {
-      var mx = (pts[i].x + pts[i + 1].x) / 2;
-      var my = (pts[i].y + pts[i + 1].y) / 2;
-      w._handles.push({ x: mx, y: my, segIndex: i });
-
-      ctx.save();
-      ctx.translate(mx, my);
-      ctx.rotate(Math.PI / 4);
-      ctx.strokeStyle = col + 'bb';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(-4, -4, 8, 8);
-      ctx.restore();
-    }
+    if (typeof syncWireEndpoints === 'function') syncWireEndpoints(w);
+    updateWireHandles(w);
+    drawWirePath(w);
   });
+
+  drawAllComponents();
+
+  wires.forEach(drawWireControls);
 
   if (wireStart && tool === 'wire') {
     ctx.strokeStyle = wireStart.color || '#4d9fff';
