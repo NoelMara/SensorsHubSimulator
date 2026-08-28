@@ -162,17 +162,17 @@ window.HELP_MODAL_HTML = `
       </div>
 
       <div class="help-pane" id="help-pane-components">
-        <p class="help-intro">Each Build Kit component has simulator-specific pins, readings, and interactions. Use this list as the expected behavior inside SensorsHub.</p>
+        <p class="help-intro">Use this list when you are not sure what a part does, which pins to connect, or how to control it in code. Each card explains the part's behavior inside SensorsHub.</p>
 
         <div class="help-comp-section-title">Microcontrollers</div>
         <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128187;</span><strong>ESP32</strong></div>
-            <span>Main board for <code>Arduino (.ino)</code> mode. Use digital pins such as <code>D2</code>, <code>D4</code>, <code>D5</code>, <code>D21</code>, <code>D22</code>, and <code>D23</code>. Analog input is available on <code>D32</code> to <code>D35</code>.</span>
+            <span>Use this board when your code is in <code>Arduino (.ino)</code> mode. Connect LEDs, buttons, and sensors to digital pins such as <code>D2</code>, <code>D4</code>, <code>D5</code>, <code>D21</code>, <code>D22</code>, and <code>D23</code>. Use <code>D32</code> to <code>D35</code> for analog sensors.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#129744;</span><strong>Raspberry Pi Pico</strong></div>
-            <span>Main board for <code>MicroPython (.py)</code> mode. Use <code>GP</code> pins such as <code>GP0</code>, <code>GP1</code>, and <code>GP2</code>. Analog input is available on <code>GP26</code>, <code>GP27</code>, and <code>GP28</code>.</span>
+            <span>Use this board when your code is in <code>MicroPython (.py)</code> mode. Connect parts to <code>GP</code> pins such as <code>GP0</code>, <code>GP1</code>, and <code>GP2</code>. Use <code>GP26</code>, <code>GP27</code>, and <code>GP28</code> for analog sensors.</span>
           </div>
         </div>
 
@@ -180,19 +180,19 @@ window.HELP_MODAL_HTML = `
         <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128308;</span><strong>Red LED</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Use <code>digitalWrite(pin, HIGH)</code> to turn it on and <code>LOW</code> to turn it off.</span>
+            <span>A simple output light. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Use <code>digitalWrite(pin, HIGH)</code> to turn it on and <code>digitalWrite(pin, LOW)</code> to turn it off.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128994;</span><strong>Green LED</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Wire it like the red LED. Useful for ready, success, or safe-status indicators.</span>
+            <span>Works like the red LED. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Use it for success, ready, or safe-status messages in your project.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128309;</span><strong>Blue LED</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Wire it like the other LEDs. Useful for signal, connection, or mode indicators.</span>
+            <span>Works like the other LEDs. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Good for showing a mode, signal, or connection state.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128993;</span><strong>Yellow LED</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Wire it like the other LEDs. Useful for warning, waiting, or transition states.</span>
+            <span>Works like the other LEDs. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Good for warnings, waiting states, or simple traffic-light projects.</span>
           </div>
         </div>
 
@@ -200,43 +200,43 @@ window.HELP_MODAL_HTML = `
         <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128225;</span><strong>HC-SR04 Ultrasonic</strong></div>
-            <span>Required pins: <code>VCC</code>, <code>Trig</code>, <code>Echo</code>, <code>GND</code>. Trigger the sensor, then read the echo time with <code>pulseIn()</code>. The distance slider simulates objects from <code>2</code> to <code>400 cm</code>.</span>
+            <span>Measures distance. Connect <code>VCC</code> and <code>GND</code> for power, <code>Trig</code> to the trigger pin in your code, and <code>Echo</code> to the echo pin. In Arduino, use <code>pulseIn()</code>. In MicroPython, use <code>time_pulse_us()</code>. Move the distance slider to simulate an object.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#127777;</span><strong>DHT22 Temp &amp; Humidity</strong></div>
-            <span>Required simulator pins: <code>VCC</code>, <code>Data</code>, <code>GND</code>. The drawing labels them as <code>+</code>, <code>OUT</code>, and <code>-</code> to match common breakout modules. Arduino supports <code>dht.readTemperature()</code> and <code>dht.readHumidity()</code>. MicroPython supports <code>measure()</code>, <code>temperature()</code>, and <code>humidity()</code> when the DHT Data wire matches the code pin. Use the canvas sliders to change temperature and humidity.</span>
+            <span>Measures temperature and humidity. Connect power, ground, and the data pin. The drawing may show <code>+</code>, <code>OUT</code>, and <code>-</code>; these match <code>VCC</code>, <code>Data</code>, and <code>GND</code>. Use the sliders to change the readings. Arduino supports <code>readTemperature()</code> and <code>readHumidity()</code>. MicroPython supports <code>measure()</code>, <code>temperature()</code>, and <code>humidity()</code>.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HC-SR501 PIR Motion Sensor</strong></div>
-            <span>Required pins: <code>GND</code>, <code>OUT</code>, <code>VCC</code>. In SensorsHub, <code>OUT</code> reads <code>HIGH</code> when motion is detected and <code>LOW</code> when idle. Click the sensor dome to toggle motion.</span>
+            <span>Detects motion. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. Read <code>OUT</code> with <code>digitalRead()</code>. It reads <code>HIGH</code> when motion is detected and <code>LOW</code> when idle. Click the sensor dome to turn motion on or off.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#127774;</span><strong>LDR Light Sensor</strong></div>
-            <span>Required pins: <code>S</code>, <code>VCC</code>, <code>GND</code>. Read <code>S</code> with <code>analogRead()</code>. Higher values mean brighter light. Use the slider to change the simulated light level.</span>
+            <span>Measures light level. Connect <code>VCC</code>, <code>GND</code>, and signal pin <code>S</code>. Read <code>S</code> with <code>analogRead()</code>. Higher values mean brighter light. Use the slider to change the simulated light.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128280;</span><strong>Button</strong></div>
-            <span>Required pins: <code>P1</code> and <code>P2</code>. In SensorsHub, <code>digitalRead()</code> returns <code>LOW</code> while pressed and <code>HIGH</code> when released. Hold the canvas button to keep it pressed.</span>
+            <span>A pressable input. Connect one side to a GPIO pin and the other side to <code>GND</code>. With <code>INPUT_PULLUP</code>, <code>digitalRead()</code> returns <code>LOW</code> while pressed and <code>HIGH</code> when released. Hold the canvas button to keep it pressed.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128433;</span><strong>Joystick (KY-023)</strong></div>
-            <span>Required pins: <code>VCC</code>, <code>GND</code>, <code>VRX</code>, <code>VRY</code>, <code>SW</code>. Read <code>VRX</code> and <code>VRY</code> with <code>analogRead()</code> for values from <code>0</code> to <code>4095</code>. Click the joystick cap to toggle <code>SW</code>; pressed reads <code>LOW</code>.</span>
+            <span>Gives left/right and up/down movement. Connect <code>VCC</code>, <code>GND</code>, <code>VRX</code>, <code>VRY</code>, and <code>SW</code>. Read <code>VRX</code> and <code>VRY</code> with <code>analogRead()</code>. Click the joystick cap to press the switch; <code>SW</code> reads <code>LOW</code> when pressed.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#127897;</span><strong>KY-004 Key Switch</strong></div>
-            <span>Required pins: <code>S</code>, <code>VCC</code>, <code>GND</code>. In SensorsHub, <code>S</code> reads <code>LOW</code> when pressed and <code>HIGH</code> when released. Click the cap to toggle it.</span>
+            <span>A small push button module. Connect <code>VCC</code>, <code>GND</code>, and signal pin <code>S</code>. Read <code>S</code> with <code>digitalRead()</code>. It reads <code>LOW</code> when pressed and <code>HIGH</code> when released. Click the cap to toggle it.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128243;</span><strong>SW-420 Vibration Sensor</strong></div>
-            <span>Required pins: <code>DO</code>, <code>GND</code>, <code>VCC</code>. In SensorsHub, <code>DO</code> reads <code>HIGH</code> when vibration is detected and <code>LOW</code> when stable. Click the sensor body to toggle vibration.</span>
+            <span>Detects shaking or vibration. Connect <code>VCC</code>, <code>GND</code>, and digital output <code>DO</code>. Read <code>DO</code> with <code>digitalRead()</code>. It reads <code>HIGH</code> when vibration is detected and <code>LOW</code> when stable. Click the sensor body to toggle vibration.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128293;</span><strong>Flame Sensor</strong></div>
-            <span>Required pins: <code>AO</code>, <code>DO</code>, <code>GND</code>, <code>VCC</code>. In SensorsHub, <code>DO</code> reads <code>LOW</code> when flame is detected. Read <code>AO</code> with <code>analogRead()</code> for intensity. Click the sensor or use the slider to change flame level.</span>
+            <span>Detects flame or strong infrared light. Connect <code>VCC</code>, <code>GND</code>, digital output <code>DO</code>, and optional analog output <code>AO</code>. <code>DO</code> reads <code>LOW</code> when flame is detected. Read <code>AO</code> with <code>analogRead()</code> for flame strength. Click the sensor or use the slider to change the flame level.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>KY-032 IR Obstacle</strong></div>
-            <span>Required pins: <code>OUT</code>, <code>VCC</code>, <code>GND</code>. The canvas also shows <code>EN</code>, but the simulator checks <code>OUT</code>, power, and ground. <code>OUT</code> reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
+            <span>Detects a nearby obstacle. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. The canvas also shows <code>EN</code>, but beginner projects usually only need <code>OUT</code>. It reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
           </div>
         </div>
 
@@ -244,15 +244,15 @@ window.HELP_MODAL_HTML = `
         <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#9881;</span><strong>Servo Motor</strong></div>
-            <span>Required pins: <code>PWM</code>, <code>VCC</code>, <code>GND</code>. In Arduino mode, control it with <code>Servo</code> and <code>servo.write(angle)</code> from <code>0</code> to <code>180</code>. PWM duty in MicroPython maps to the displayed angle. The canvas horn rotates live.</span>
+            <span>Rotates to an angle. Connect <code>VCC</code>, <code>GND</code>, and signal pin <code>PWM</code>. In Arduino mode, use the <code>Servo</code> library and <code>servo.write(angle)</code> from <code>0</code> to <code>180</code>. In MicroPython, PWM duty changes the displayed angle. The horn rotates on the canvas.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128276;</span><strong>Buzzer</strong></div>
-            <span>Required pins: <code>+</code> and <code>-</code>. Use <code>tone(pin, frequency)</code> to play, <code>noTone(pin)</code> to stop, or <code>digitalWrite(pin, HIGH)</code> for a simple on/off beep. The canvas icon changes while active.</span>
+            <span>Makes a beep sound in projects. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Use <code>tone(pin, frequency)</code> to play, <code>noTone(pin)</code> to stop, or <code>digitalWrite(pin, HIGH)</code> for a simple on/off buzzer.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128223;</span><strong>OLED Display (SSD1306)</strong></div>
-            <span>Required pins: <code>GND</code>, <code>VCC</code>, <code>SCL</code>, <code>SDA</code>. Use <code>Wire</code> and <code>Adafruit_SSD1306</code> in Arduino mode. On ESP32, the common simulator wiring is <code>SCL</code> to <code>D22</code> and <code>SDA</code> to <code>D21</code>. The display updates as your sketch runs.</span>
+            <span>Shows text or simple graphics. Connect <code>VCC</code>, <code>GND</code>, <code>SCL</code>, and <code>SDA</code>. In Arduino mode, use <code>Wire</code> and <code>Adafruit_SSD1306</code>. On ESP32, the common wiring is <code>SCL</code> to <code>D22</code> and <code>SDA</code> to <code>D21</code>. The screen updates while your sketch runs.</span>
           </div>
         </div>
 
