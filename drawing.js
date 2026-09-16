@@ -749,6 +749,20 @@ function drawPinDot(p, selected) {
   }
 }
 
+function roundedRectPath(x, y, w, h, r) {
+  r = Math.min(r || 0, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+}
+
 // ==========================================
 // MICROCONTROLLERS
 // ==========================================
@@ -803,41 +817,102 @@ function drawESP32(c) {
 
 function drawPico(c) {
   var x = c.x, y = c.y, w = c.width, h = c.height;
+  var bodyR = 6;
 
-  ctx.fillStyle = '#0a2a12';
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = '#1a5a28';
+  ctx.save();
+  ctx.fillStyle = '#08743a';
+  roundedRectPath(x, y, w, h, bodyR);
+  ctx.fill();
+  ctx.strokeStyle = '#0b5f34';
   ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, w, h);
+  ctx.stroke();
 
-  ctx.fillStyle = '#050f08';
-  ctx.fillRect(x + 18, y + 10, w - 36, 52);
-  ctx.strokeStyle = '#0d3018';
-  ctx.strokeRect(x + 18, y + 10, w - 36, 52);
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  roundedRectPath(x + 16, y + 42, w - 32, h - 78, 4);
+  ctx.fill();
 
-  ctx.fillStyle = '#3ddc84';
-  ctx.font = 'bold 11px Orbitron, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('PICO', x + w / 2, y + 30);
+  ctx.fillStyle = '#d8dada';
+  roundedRectPath(x + w / 2 - 25, y - 4, 50, 34, 4);
+  ctx.fill();
+  ctx.fillStyle = '#28303b';
+  ctx.fillRect(x + w / 2 - 16, y + 25, 32, 8);
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(x + w / 2 - 22, y + 22, 8, 7);
+  ctx.fillRect(x + w / 2 + 14, y + 22, 8, 7);
 
-  ctx.fillStyle = '#1a6a34';
-  ctx.font = '7px JetBrains Mono, monospace';
-  ctx.fillText('RP2040', x + w / 2, y + 45);
-  ctx.fillText('Raspberry Pi', x + w / 2, y + 55);
-
-  ctx.fillStyle = '#111';
-  ctx.fillRect(x + w / 2 - 8, y, 16, 5);
-  ctx.strokeStyle = '#333';
-  ctx.strokeRect(x + w / 2 - 8, y, 16, 5);
-
-  [[x + 4, y + 4], [x + w - 4, y + 4], [x + 4, y + h - 4], [x + w - 4, y + h - 4]].forEach(function(pt) {
-    ctx.fillStyle = '#000';
+  ctx.fillStyle = '#f4e83a';
+  [[x + 34, y + 24], [x + w - 34, y + 24], [x + 44, y + h - 28], [x + w - 44, y + h - 28]].forEach(function(pt) {
     ctx.beginPath();
-    ctx.arc(pt[0], pt[1], 3, 0, Math.PI * 2);
+    ctx.arc(pt[0], pt[1], 11, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = '#1a5a28';
-    ctx.stroke();
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.arc(pt[0], pt[1], 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f4e83a';
   });
+
+  ctx.fillStyle = '#2e3430';
+  roundedRectPath(x + w / 2 - 29, y + 150, 58, 54, 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.font = 'bold 17px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('RP', x + w / 2, y + 181);
+
+  ctx.save();
+  ctx.translate(x + 36, y + h / 2 + 12);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = 'bold 12px JetBrains Mono, monospace';
+  ctx.fillText('Raspberry Pi Pico', 0, 0);
+  ctx.restore();
+
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = 'bold 10px JetBrains Mono, monospace';
+  ctx.fillText('USB', x + w / 2, y + 52);
+
+  ctx.save();
+  ctx.translate(x + 49, y + 114);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = 'bold 10px JetBrains Mono, monospace';
+  ctx.fillText('BOOTSEL', 0, 0);
+  ctx.restore();
+
+  ctx.fillStyle = '#f4f6f8';
+  roundedRectPath(x + 58, y + 94, 24, 38, 10);
+  ctx.fill();
+  ctx.strokeStyle = '#d5d9df';
+  ctx.stroke();
+
+  ctx.fillStyle = '#202833';
+  [
+    [x + 84, y + 72, 18, 28],
+    [x + 112, y + 70, 22, 30],
+    [x + 93, y + 111, 18, 22]
+  ].forEach(function(part) {
+    roundedRectPath(part[0], part[1], part[2], part[3], 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#d8ccb1';
+  [
+    [x + 91, y + 44, 7, 6],
+    [x + 64, y + 142, 5, 8],
+    [x + 72, y + 142, 5, 8],
+    [x + 80, y + 142, 5, 8],
+    [x + 88, y + 142, 5, 8],
+    [x + 96, y + 142, 5, 8],
+    [x + 104, y + 142, 5, 8],
+    [x + 112, y + 142, 5, 8]
+  ].forEach(function(part) {
+    ctx.fillRect(part[0], part[1], part[2], part[3]);
+  });
+
+  ctx.fillStyle = '#f8fafc';
+  ctx.font = 'bold 8px JetBrains Mono, monospace';
+  ctx.fillText('DEBUG', x + w / 2, y + h - 45);
 
   c.pins.forEach(function(p) {
     p.x = p.side === 'left' ? x : x + w;
@@ -852,11 +927,13 @@ function drawPico(c) {
 
     drawPinDot(p, wireStart === p);
 
-   ctx.fillStyle = '#8890a8';
+    ctx.fillStyle = '#d7e1d8';
     ctx.font = 'bold 8px JetBrains Mono, monospace';
     ctx.textAlign = p.side === 'left' ? 'right' : 'left';
     ctx.fillText(p.name, p.side === 'left' ? p.x - 16 : p.x + 16, p.y + 2);
   });
+
+  ctx.restore();
 }
 
 // ==========================================
