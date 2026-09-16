@@ -525,6 +525,19 @@ function updateWireHandles(w) {
 function drawWireControls(w) {
   var col = w.color || '#4d9fff';
 
+  [
+    { x: w.x1, y: w.y1 },
+    { x: w.x2, y: w.y2 }
+  ].forEach(function(p) {
+    ctx.fillStyle = col;
+    ctx.strokeStyle = 'rgba(255,255,255,0.82)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
   (w.waypoints || []).forEach(function(wp) {
     ctx.fillStyle = 'rgba(255,255,255,0.86)';
     ctx.strokeStyle = col;
@@ -607,14 +620,41 @@ function draw() {
   wires.forEach(drawWireControls);
 
   if (wireStart && tool === 'wire') {
+    var previewTarget = null;
+    if (typeof findPin === 'function') {
+      previewTarget = findPin(mouseX, mouseY);
+      if (previewTarget === wireStart) previewTarget = null;
+    }
+
+    var previewPoints = [{ x: wireStart.x, y: wireStart.y }];
+    if (previewTarget && typeof buildWireWaypoints === 'function') {
+      previewPoints = previewPoints
+        .concat(buildWireWaypoints(wireStart, previewTarget, [], 0))
+        .concat([{ x: previewTarget.x, y: previewTarget.y }]);
+    } else {
+      previewPoints.push({ x: mouseX, y: mouseY });
+    }
+
     ctx.strokeStyle = wireStart.color || '#4d9fff';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
-    ctx.moveTo(wireStart.x, wireStart.y);
-    ctx.lineTo(mouseX, mouseY);
+    ctx.moveTo(previewPoints[0].x, previewPoints[0].y);
+    for (var pi = 1; pi < previewPoints.length; pi++) {
+      ctx.lineTo(previewPoints[pi].x, previewPoints[pi].y);
+    }
     ctx.stroke();
     ctx.setLineDash([]);
+
+    if (previewTarget) {
+      ctx.fillStyle = previewTarget.color || '#4d9fff';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(previewTarget.x, previewTarget.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
   }
 }
 
@@ -652,7 +692,49 @@ function drawNotWiredWarning(c) {
 // ==========================================
 // SHARED HELPERS
 // ==========================================
+function getPinConnectionColor(pin) {
+  if (!pin || typeof wires === 'undefined') return null;
+  var owner = null;
+
+  for (var i = 0; i < components.length && !owner; i++) {
+    var comp = components[i];
+    if (!comp.pins) continue;
+    for (var j = 0; j < comp.pins.length; j++) {
+      if (comp.pins[j] === pin) {
+        owner = comp;
+        break;
+      }
+    }
+  }
+
+  if (!owner) return null;
+  var pinId = owner.id + '_' + pin.name;
+
+  for (var k = 0; k < wires.length; k++) {
+    var w = wires[k];
+    if (w.pin1Id === pinId || w.pin2Id === pinId) {
+      return w.color || pin.color || '#4d9fff';
+    }
+  }
+
+  return null;
+}
+
 function drawPinDot(p, selected) {
+  var connectionColor = getPinConnectionColor(p);
+
+  if (connectionColor) {
+    ctx.save();
+    ctx.strokeStyle = connectionColor;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = connectionColor;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, selected ? 9 : 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.fillStyle = p.color;
   ctx.beginPath();
   ctx.arc(p.x, p.y, selected ? 6 : 4, 0, Math.PI * 2);
