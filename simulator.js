@@ -85,19 +85,41 @@ function getActiveMCU() {
 }
 
 function getMCUPinCandidates(pinNumber) {
-  var pinNum = String(pinNumber).replace(/^(GP|D)/i, '');
+  var raw = String(pinNumber).trim();
+  var pinNum = raw.replace(/^(GPIO|GP|D)/i, '');
   var mcu = getActiveMCU();
 
   if (mcu === 'pico') return ['GP' + pinNum];
-  if (mcu === 'esp32') return ['D' + pinNum];
+  if (mcu === 'esp32') {
+    var esp32Pins = ['D' + pinNum];
+    var uartAliases = {
+      '1': 'TX0',
+      '3': 'RX0',
+      '16': 'RX2',
+      '17': 'TX2'
+    };
+    if (uartAliases[pinNum]) esp32Pins.push(uartAliases[pinNum]);
+    if (/^(RX|TX)\d$/i.test(raw)) esp32Pins.push(raw.toUpperCase());
+    return esp32Pins;
+  }
 
   return ['D' + pinNum, 'GP' + pinNum];
 }
 
 function mcuPinName(pinNumber) {
-  return getActiveMCU() === 'pico'
-    ? 'GP' + pinNumber
-    : 'D' + pinNumber;
+  var raw = String(pinNumber).trim();
+  var pinNum = raw.replace(/^(GPIO|GP|D)/i, '');
+  if (getActiveMCU() === 'pico') return 'GP' + pinNum;
+
+  var uartAliases = {
+    '1': 'TX0',
+    '3': 'RX0',
+    '16': 'RX2',
+    '17': 'TX2'
+  };
+
+  if (/^(RX|TX)\d$/i.test(raw)) return raw.toUpperCase();
+  return uartAliases[pinNum] || ('D' + pinNum);
 }
 
 // ==========================================
@@ -312,6 +334,10 @@ function resolvePin(arg) {
 
   if (/^D\d+$/i.test(arg)) return parseInt(arg.slice(1), 10);
   if (/^GP\d+$/i.test(arg)) return parseInt(arg.slice(2), 10);
+  if (/^TX0$/i.test(arg)) return 1;
+  if (/^RX0$/i.test(arg)) return 3;
+  if (/^RX2$/i.test(arg)) return 16;
+  if (/^TX2$/i.test(arg)) return 17;
 
   const n = parseInt(arg, 10);
   return isNaN(n) ? null : n;
