@@ -852,14 +852,6 @@ function drawPico(c) {
     ctx.fillStyle = '#f4e83a';
   });
 
-  ctx.fillStyle = '#2e3430';
-  roundedRectPath(x + w / 2 - 29, y + 150, 58, 54, 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.08)';
-  ctx.font = 'bold 17px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('RP', x + w / 2, y + 181);
-
   ctx.save();
   ctx.translate(x + 36, y + h / 2 + 12);
   ctx.rotate(-Math.PI / 2);
@@ -872,25 +864,35 @@ function drawPico(c) {
   ctx.font = 'bold 10px JetBrains Mono, monospace';
   ctx.fillText('USB', x + w / 2, y + 52);
 
-  ctx.save();
-  ctx.translate(x + 49, y + 114);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 10px JetBrains Mono, monospace';
-  ctx.fillText('BOOTSEL', 0, 0);
-  ctx.restore();
+  var onboardLedOn = typeof pinValues !== 'undefined' && !!pinValues.GP25;
+  ctx.fillStyle = '#c8ffd2';
+  ctx.font = 'bold 8px JetBrains Mono, monospace';
+  ctx.fillText('LED', x + 44, y + 74);
+  if (onboardLedOn) {
+    ctx.save();
+    ctx.shadowColor = '#b7ff5a';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#caff5a';
+    ctx.beginPath();
+    ctx.arc(x + 44, y + 62, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = onboardLedOn ? '#efff95' : '#d6f7dc';
+  ctx.beginPath();
+  ctx.arc(x + 44, y + 62, 3.5, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.fillStyle = '#f4f6f8';
-  roundedRectPath(x + 58, y + 94, 24, 38, 10);
+  roundedRectPath(x + 48, y + 96, 22, 34, 10);
   ctx.fill();
   ctx.strokeStyle = '#d5d9df';
   ctx.stroke();
 
   ctx.fillStyle = '#202833';
   [
-    [x + 84, y + 72, 18, 28],
-    [x + 112, y + 70, 22, 30],
-    [x + 93, y + 111, 18, 22]
+    [x + 84, y + 74, 18, 26],
+    [x + 116, y + 74, 20, 26]
   ].forEach(function(part) {
     roundedRectPath(part[0], part[1], part[2], part[3], 2);
     ctx.fill();
@@ -898,17 +900,33 @@ function drawPico(c) {
 
   ctx.fillStyle = '#d8ccb1';
   [
-    [x + 91, y + 44, 7, 6],
-    [x + 64, y + 142, 5, 8],
-    [x + 72, y + 142, 5, 8],
-    [x + 80, y + 142, 5, 8],
-    [x + 88, y + 142, 5, 8],
-    [x + 96, y + 142, 5, 8],
-    [x + 104, y + 142, 5, 8],
-    [x + 112, y + 142, 5, 8]
+    [x + 77, y + 56, 7, 6],
+    [x + 106, y + 56, 7, 6]
   ].forEach(function(part) {
     ctx.fillRect(part[0], part[1], part[2], part[3]);
   });
+
+  ctx.strokeStyle = '#b9d7c0';
+  ctx.lineWidth = 1;
+  [
+    [x + 73, y + 82, 7, 5],
+    [x + 142, y + 82, 7, 5]
+  ].forEach(function(part) {
+    ctx.strokeRect(part[0], part[1], part[2], part[3]);
+  });
+
+  ctx.fillStyle = '#202833';
+  roundedRectPath(x + w / 2 - 29, y + 154, 58, 54, 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.font = 'bold 17px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('RP', x + w / 2, y + 185);
+
+  ctx.fillStyle = '#d8ccb1';
+  for (var pad = 0; pad < 6; pad++) {
+    ctx.fillRect(x + 72 + pad * 8, y + 144, 5, 8);
+  }
 
   ctx.fillStyle = '#f8fafc';
   ctx.font = 'bold 8px JetBrains Mono, monospace';
@@ -930,7 +948,7 @@ function drawPico(c) {
     ctx.fillStyle = '#d7e1d8';
     ctx.font = 'bold 8px JetBrains Mono, monospace';
     ctx.textAlign = p.side === 'left' ? 'right' : 'left';
-    ctx.fillText(p.name, p.side === 'left' ? p.x - 16 : p.x + 16, p.y + 2);
+    ctx.fillText(p.name.indexOf('GND') === 0 ? 'GND' : p.name, p.side === 'left' ? p.x - 16 : p.x + 16, p.y + 2);
   });
 
   ctx.restore();
