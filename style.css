@@ -529,10 +529,11 @@ html, body {
 
 #code-buttons {
   padding: 14px 16px 16px;
-  display: flex; gap: 10px;
+  display: flex; gap: 10px; flex-wrap: wrap;
   border-top: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(9,17,26,0.93), rgba(7,13,20,0.96));
 }
+.code-clear-btn { margin-left: auto; }
 
 /* ============================================================
    SIM PANEL & CANVAS
@@ -879,6 +880,9 @@ canvas {
   /* ── Buttons ── */
   .btn { min-height: 34px; padding: 7px 9px; font-size: 10px; gap: 4px; }
   .btn .btn-label { display: none; }
+  #code-buttons { gap: 8px; padding: 10px; }
+  #code-buttons .btn { flex: 1 1 0; justify-content: center; }
+  .code-clear-btn { margin-left: 0; flex-basis: 100%; }
  
   /* ── Layout ── */
   #main-container { flex-direction: column; position: relative; }

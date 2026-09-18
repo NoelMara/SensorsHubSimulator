@@ -118,6 +118,7 @@
         <div id="code-buttons">
           <button class="btn green" onclick="runCode()">▶ Run</button>
           <button class="btn red"   onclick="stopCode()">■ Stop</button>
+          <button class="btn yellow code-clear-btn" onclick="clearCodeEditor()">Clear Code</button>
         </div>
       </div>
     </div>
@@ -324,6 +325,22 @@ function getCode() {
   return editor
     ? editor.getValue()
     : document.getElementById('code-textarea').value;
+}
+
+function clearCodeEditor() {
+  var current = getCode();
+  if (!current.trim()) {
+    updateStatus('Editor is already empty');
+    return;
+  }
+
+  if (!confirm('Clear all code in the current editor?')) return;
+
+  setEditorContent('', window.fileMode === 'py'
+    ? '# Write your MicroPython script here...'
+    : '// Write your Arduino sketch here...');
+  _savedContent[window.fileMode] = '';
+  updateStatus('Code cleared');
 }
 
 /* ============================================================

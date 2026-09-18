@@ -769,31 +769,70 @@ function roundedRectPath(x, y, w, h, r) {
 function drawESP32(c) {
   var x = c.x, y = c.y, w = c.width, h = c.height;
 
-  ctx.fillStyle = '#0b1e3a';
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = '#1a4080';
+  ctx.fillStyle = '#101820';
+  roundedRectPath(x, y, w, h, 7);
+  ctx.fill();
+  ctx.strokeStyle = '#2d3c4c';
   ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, w, h);
+  ctx.stroke();
 
-  ctx.fillStyle = '#060f1e';
-  ctx.fillRect(x + 10, y + 10, w - 20, 48);
-  ctx.strokeStyle = '#0a2040';
+  ctx.fillStyle = '#d8dada';
+  roundedRectPath(x + w / 2 - 25, y - 5, 50, 34, 4);
+  ctx.fill();
+  ctx.fillStyle = '#2b3340';
+  ctx.fillRect(x + w / 2 - 16, y + 24, 32, 8);
+  ctx.fillStyle = '#1f2937';
+  ctx.fillRect(x + w / 2 - 22, y + 21, 8, 7);
+  ctx.fillRect(x + w / 2 + 14, y + 21, 8, 7);
+
+  ctx.fillStyle = '#2d3642';
+  [
+    [x + 36, y + 58, 20, 22],
+    [x + w - 58, y + 58, 20, 22],
+    [x + 68, y + 96, 34, 34],
+    [x + 116, y + 98, 34, 24],
+    [x + 42, y + 142, 24, 20],
+    [x + 86, y + 142, 30, 18]
+  ].forEach(function(part) {
+    roundedRectPath(part[0], part[1], part[2], part[3], 2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#c7a66a';
+  for (var ep = 0; ep < 8; ep++) {
+    ctx.fillRect(x + 52 + ep * 9, y + 176, 5, 8);
+  }
+
+  ctx.fillStyle = '#d7d2c7';
+  roundedRectPath(x + 44, y + 196, w - 88, 96, 3);
+  ctx.fill();
+  ctx.strokeStyle = '#eee8d9';
   ctx.lineWidth = 1;
-  ctx.strokeRect(x + 10, y + 10, w - 20, 48);
+  ctx.stroke();
 
-  ctx.fillStyle = '#4d9fff';
-  ctx.font = 'bold 13px Orbitron, monospace';
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(x + 44, y + 292, w - 88, 54);
+
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = 'bold 10px Orbitron, monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('ESP32', x + w / 2, y + 32);
+  ctx.fillText('ESP32', x + w / 2, y + 242);
 
-  ctx.fillStyle = '#2a5a8a';
-  ctx.font = '8px JetBrains Mono, monospace';
-  ctx.fillText('DevKit V1', x + w / 2, y + 48);
+  ctx.fillStyle = '#f4e83a';
+  [[x + 18, y + 18], [x + w - 18, y + 18], [x + 18, y + h - 18], [x + w - 18, y + h - 18]].forEach(function(pt) {
+    ctx.beginPath();
+    ctx.arc(pt[0], pt[1], 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0f1720';
+    ctx.beginPath();
+    ctx.arc(pt[0], pt[1], 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f4e83a';
+  });
 
-  ctx.fillStyle = '#222';
-  ctx.fillRect(x + w / 2 - 10, y, 20, 6);
-  ctx.strokeStyle = '#444';
-  ctx.strokeRect(x + w / 2 - 10, y, 20, 6);
+  ctx.fillStyle = '#73849a';
+  ctx.font = 'bold 8px JetBrains Mono, monospace';
+  ctx.fillText('DevKit V1', x + w / 2, y + h - 38);
 
   c.pins.forEach(function(p) {
     p.x = p.side === 'left' ? x : x + w;
