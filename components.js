@@ -235,17 +235,46 @@ function addComponent(type) {
     maxY = canvasLogicalHeight - 20;
   }
 
-var cx = Math.round(Math.min(maxX, Math.max(minX, canvasLogicalWidth / 2 + (Math.random() - 0.5) * 120)));
-var cy = Math.round(Math.min(maxY, Math.max(minY, canvasLogicalHeight / 2 + (Math.random() - 0.5) * 80)));
+var spawnSlot = components.length;
+var spawnOffsets = [
+  { x: 0, y: 0 }, { x: -96, y: 0 }, { x: 96, y: 0 },
+  { x: 0, y: -96 }, { x: 0, y: 96 }, { x: -96, y: -96 },
+  { x: 96, y: -96 }, { x: -96, y: 96 }, { x: 96, y: 96 }
+];
+var spawnOffset = spawnOffsets[spawnSlot % spawnOffsets.length];
+var isCompactScreen = window.innerWidth < 700;
+var spawnOffsetScale = isCompactScreen ? 0.62 : 0.82;
+var spawnCenterX = canvasLogicalWidth / 2;
+var spawnCenterY = canvasLogicalHeight / 2;
+var palette = document.getElementById('palette-wrapper');
+if (palette && canvas) {
+  var canvasRect = canvas.getBoundingClientRect();
+  var paletteRect = palette.getBoundingClientRect();
+  var zoom = window.zoomLevel || 1;
+  var visibleLeft = canvasRect.left;
+  var visibleTop = canvasRect.top;
+  var visibleRight = canvasRect.right;
+  var visibleBottom = canvasRect.bottom;
+  var overlap = paletteRect.top < visibleBottom && paletteRect.bottom > visibleTop;
+  if (overlap && paletteRect.top > visibleTop) visibleBottom = paletteRect.top - 24;
+  spawnCenterX = ((visibleLeft + visibleRight) / 2 - canvasRect.left) / zoom;
+  spawnCenterY = ((visibleTop + visibleBottom) / 2 - canvasRect.top) / zoom;
+}
+if (!isCompactScreen) spawnCenterX *= 0.9;
+var cx = Math.round(Math.min(maxX, Math.max(minX, spawnCenterX + spawnOffset.x * spawnOffsetScale)));
+var cy = Math.round(Math.min(maxY, Math.max(minY, spawnCenterY + spawnOffset.y * spawnOffsetScale)));
 
 if (type === 'esp32' || type === 'pico') {
-  cy = Math.round(Math.min(maxY - 210, Math.max(minY, canvasLogicalHeight / 2 - 100)));
+  // MCUs are tall, so place them in the upper workspace instead of letting
+  // their lower half get crowded by the Build Kit/palette area.
+  cy = Math.round(Math.min(maxY - 210, Math.max(minY, spawnCenterY * 0.55)));
 }
 
   var comp = null;
+  var mcuX = type === 'esp32' ? cx - 90 : cx - 80;
 
-  if      (type === 'esp32')      comp = createESP32(cx, cy);
-  else if (type === 'pico')       comp = createPico(cx, cy);
+  if      (type === 'esp32')      comp = createESP32(mcuX, cy);
+  else if (type === 'pico')       comp = createPico(mcuX, cy);
   else if (type === 'led_red')    comp = createLED(cx, cy, '#ff3344', 'Red');
   else if (type === 'led_green')  comp = createLED(cx, cy, '#22dd55', 'Green');
   else if (type === 'led_blue')   comp = createLED(cx, cy, '#3399ff', 'Blue');

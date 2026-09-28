@@ -596,7 +596,12 @@ function draw() {
     rerouteAutomaticWires();
   }
 
-  ctx.clearRect(0, 0, canvasLogicalWidth, canvasLogicalHeight);
+  // Clear the full backing canvas in screen space. Clearing while the
+  // camera transform is active can leave ghost images after zooming/panning.
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.restore();
 
   ctx.strokeStyle = 'rgba(255,255,255,0.025)';
   ctx.lineWidth = 0.5;

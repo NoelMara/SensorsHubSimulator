@@ -21,7 +21,6 @@ function getCanvasXY(e) {
 
   var rect = canvas.getBoundingClientRect();
   var zoom = window.zoomLevel || 1;
-
   return {
     x: (e.clientX - rect.left) / zoom,
     y: (e.clientY - rect.top) / zoom
@@ -1094,10 +1093,11 @@ function handleCanvasWheel(e) {
   if (!window.zoomLevel) window.zoomLevel = 1;
 
   var delta = e.deltaY > 0 ? 0.9 : 1.1;
-  var newZoom = window.zoomLevel * delta;
+  var oldZoom = window.zoomLevel || 1;
+  var newZoom = oldZoom * delta;
   newZoom = Math.min(Math.max(newZoom, 0.25), 3.0);
 
-  if (Math.abs(newZoom - window.zoomLevel) > 0.01) {
+  if (Math.abs(newZoom - oldZoom) > 0.01) {
     window.zoomLevel = newZoom;
     updateStatus('Zoom: ' + Math.round(newZoom * 100) + '%');
     showZoomBadge(newZoom);
