@@ -42,7 +42,7 @@ const REQUIRED_PINS = {
   ky004:      ['S', 'VCC', 'GND'],
   sw420:      ['DO', 'GND', 'VCC'],
   flame:      ['AO', 'DO', 'GND', 'VCC'],
-  ky032:      ['OUT', 'VCC', 'GND'],
+  hw201:      ['OUT', 'VCC', 'GND'],
   servo:      ['PWM', 'VCC', 'GND'],
   buzzer:     ['+', '-'],
   ssd1306:    ['GND', 'VCC', 'SCL', 'SDA']
@@ -59,7 +59,7 @@ const SIGNAL_PINS = {
   ky004:      'S',
   sw420:      'DO',
   flame:      'DO',
-  ky032:      'OUT',
+  hw201:      'OUT',
   servo:      'PWM',
   buzzer:     '+'
 };
@@ -649,7 +649,7 @@ function readDigitalPinValue(pin) {
 
   var pinName = mcuPinName(pin);
   var candidates = getMCUPinCandidates(pin);
-  var digitalSensorTypes = ['button', 'pir', 'ky004', 'sw420', 'flame', 'ky032', 'joystick'];
+  var digitalSensorTypes = ['button', 'pir', 'ky004', 'sw420', 'flame', 'hw201', 'joystick'];
   var digitalSignalPins = ['P1', 'OUT', 'S', 'DO', 'SW'];
 
   for (var i = 0; i < components.length; i++) {
@@ -688,7 +688,7 @@ function readDigitalPinValue(pin) {
       });
       if (fm) return comp.state.detected ? 0 : 1;
     }
-     if (comp.type === 'ky032') {
+      if (comp.type === 'hw201') {
       var om = candidates.some(function(pn) {
         return componentConnectedToMcuPin(comp, 'OUT', pn);
       });

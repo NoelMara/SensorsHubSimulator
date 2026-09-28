@@ -235,8 +235,8 @@ window.HELP_MODAL_HTML = `
             <span>Detects flame or strong infrared light. Connect <code>VCC</code>, <code>GND</code>, digital output <code>DO</code>, and optional analog output <code>AO</code>. <code>DO</code> reads <code>LOW</code> when flame is detected. Read <code>AO</code> with <code>analogRead()</code> for flame strength. Click the sensor or use the slider to change the flame level.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>KY-032 IR Obstacle</strong></div>
-            <span>Detects a nearby obstacle. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. The canvas also shows <code>EN</code>, but beginner projects usually only need <code>OUT</code>. It reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
+            <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HW-201 IR Obstacle</strong></div>
+<span>Detects a nearby obstacle. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. It reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
           </div>
         </div>
 

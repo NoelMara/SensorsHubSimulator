@@ -28,6 +28,14 @@ function getCanvasXY(e) {
   };
 }
 
+function snapWirePointToGrid(point) {
+  var grid = 24;
+  return {
+    x: Math.round(point.x / grid) * grid,
+    y: Math.round(point.y / grid) * grid
+  };
+}
+
 function findPin(mx, my) {
   var bestPin = null;
   var bestDist = Infinity;
@@ -424,8 +432,9 @@ function handleCanvasMouseMove(e) {
     }
 
     if (dragging.type === 'wire-waypoint') {
-      dragging.wire.waypoints[dragging.wpIndex].x = mouseX;
-      dragging.wire.waypoints[dragging.wpIndex].y = mouseY;
+      var snappedWirePoint = snapWirePointToGrid({ x: mouseX, y: mouseY });
+      dragging.wire.waypoints[dragging.wpIndex].x = snappedWirePoint.x;
+      dragging.wire.waypoints[dragging.wpIndex].y = snappedWirePoint.y;
       syncWireEndpoints(dragging.wire);
       draw();
       return;
@@ -643,7 +652,7 @@ function handleCanvasMouseDown(e) {
           return;
         }
       }
-      if (c.type === 'ky032') {
+      if (c.type === 'hw201') {
         var odx = x - c.x;
         var ody = y - c.y;
         if (odx * odx + ody * ody < 324) {
@@ -689,6 +698,7 @@ function handleCanvasMouseDown(e) {
           x: (pts[seg].x + pts[seg + 1].x) / 2,
           y: (pts[seg].y + pts[seg + 1].y) / 2
         };
+        newWp = snapWirePointToGrid(newWp);
 
         w.waypoints.splice(seg, 0, newWp);
         dragging = { type: 'wire-waypoint', wire: w, wpIndex: seg };

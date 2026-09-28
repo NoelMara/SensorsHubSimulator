@@ -260,7 +260,7 @@ if (type === 'esp32' || type === 'pico') {
   else if (type === 'ky004')      comp = createKY004(cx, cy);
   else if (type === 'sw420')      comp = createSW420(cx, cy);
   else if (type === 'flame')      comp = createFlame(cx, cy);
-  else if (type === 'ky032')      comp = createKY032(cx, cy);
+  else if (type === 'hw201')      comp = createHW201(cx, cy);
   else if (type === 'buzzer')     comp = createBuzzer(cx, cy);
   else if (type === 'ssd1306')    comp = createSSD1306(cx, cy);
 
@@ -733,31 +733,30 @@ function createFlame(x, y) {
     _slider: { x: 0, y: 0, w: 4, h: 50, knobX: 0, knobY: 0, knobR: 8 }
   };
 
-  c.pins.push({ name: 'AO',  x: x - 18, y: y + 26, side: 'bottom', type: 'analog', color: '#a78bfa' });
-  c.pins.push({ name: 'DO',  x: x,      y: y + 26, side: 'bottom', type: 'gpio',   color: '#3ddc84' });
-  c.pins.push({ name: 'GND', x: x + 18, y: y + 26, side: 'bottom', type: 'gnd',    color: '#8b7355' });
-  c.pins.push({ name: 'VCC', x: x + 36, y: y + 26, side: 'bottom', type: 'power',  color: '#ff5566' });
+  c.pins.push({ name: 'AO',  x: x - 18, y: y + 50, side: 'bottom', type: 'analog', color: '#a78bfa' });
+  c.pins.push({ name: 'DO',  x: x - 6,  y: y + 50, side: 'bottom', type: 'gpio',   color: '#3ddc84' });
+  c.pins.push({ name: 'GND', x: x + 6,  y: y + 50, side: 'bottom', type: 'gnd',    color: '#8b7355' });
+  c.pins.push({ name: 'VCC', x: x + 18, y: y + 50, side: 'bottom', type: 'power',  color: '#ff5566' });
 
   return c;
 }
 
-function createKY032(x, y) {
+function createHW201(x, y) {
   var c = {
     id: mkId(),
-    type: 'ky032',
+    type: 'hw201',
     x: x,
     y: y,
     width: 52,
     height: 130,
     pins: [],
-    state: { detected: false },  
+    state: { detected: false },
     _beam: { phase: 0 }
   };
 
-  c.pins.push({ name: 'EN',  x: x - 21, y: y + 55, side: 'bottom', type: 'gpio',  color: '#ffcc44' });
-  c.pins.push({ name: 'VCC', x: x -  7, y: y + 55, side: 'bottom', type: 'power', color: '#ff5566' });
-  c.pins.push({ name: 'OUT', x: x +  7, y: y + 55, side: 'bottom', type: 'gpio',  color: '#3ddc84' });
-  c.pins.push({ name: 'GND', x: x + 21, y: y + 55, side: 'bottom', type: 'gnd',   color: '#8b7355' });
+  c.pins.push({ name: 'OUT', x: x - 18, y: y + 58, side: 'bottom', type: 'gpio',  color: '#3ddc84' });
+  c.pins.push({ name: 'GND', x: x,      y: y + 58, side: 'bottom', type: 'gnd',   color: '#8b7355' });
+  c.pins.push({ name: 'VCC', x: x + 18, y: y + 58, side: 'bottom', type: 'power', color: '#ff5566' });
 
   return c;
 }

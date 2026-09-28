@@ -576,7 +576,7 @@ function drawAllComponents() {
     else if (c.type === 'ky004')      drawKY004(c);
     else if (c.type === 'sw420')      drawSW420(c);
     else if (c.type === 'flame')      drawFlame(c);
-    else if (c.type === 'ky032')      drawKY032(c);
+    else if (c.type === 'hw201')      drawHW201(c);
     else if (c.type === 'buzzer')     drawBuzzer(c);
     else if (c.type === 'ssd1306')    drawSSD1306(c);
 
@@ -2347,215 +2347,251 @@ function drawFlame(c) {
   var x = c.x, y = c.y;
   var detected = !!c.state.detected;
   var wired = typeof isComponentWired === 'function' ? isComponentWired(c) : true;
+  var active = detected && wired;
 
-  //  PCB body (blue)
+  ctx.save();
+
+  // ── PCB ──
+  var pcbW = 44, pcbH = 80;
+  var yTop = y - pcbH / 2;
+
   ctx.fillStyle = '#1a3a8a';
-  ctx.fillRect(x - 28, y - 32, 56, 64);
-  ctx.strokeStyle = detected && wired ? '#ff6600' : '#2a5acc';
+  ctx.fillRect(x - pcbW / 2, yTop, pcbW, pcbH);
+  ctx.strokeStyle = '#2a5acc';
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(x - 28, y - 32, 56, 64);
-
-  //  PCB edge highlight
+  ctx.strokeRect(x - pcbW / 2, yTop, pcbW, pcbH);
   ctx.strokeStyle = '#2a4ab0';
   ctx.lineWidth = 0.5;
-  ctx.strokeRect(x - 26, y - 30, 52, 60);
+  ctx.strokeRect(x - pcbW / 2 + 1, yTop + 1, pcbW - 2, pcbH - 2);
 
-  //
-  var domeX = x + 14;
-  var domeBaseY = y - 32; // sits flush on PCB top edge
+  // ── Solder pads for the phototransistor (- and +) ──
+  var padY = yTop + 5;
+  [-4, 4].forEach(function(dx) {
+    ctx.fillStyle = '#d8dde6';
+    ctx.beginPath();
+    ctx.arc(x + dx, padY, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0a1628';
+    ctx.beginPath();
+    ctx.arc(x + dx, padY, 1, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.fillStyle = '#ffffff88';
+  ctx.font = 'bold 4px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('-', x - 10, padY + 1.5);
+  ctx.fillText('+', x + 10, padY + 1.5);
 
-  // bullet body (rectangle base + round top)
-  ctx.fillStyle = '#0d0d0d';
-  ctx.fillRect(domeX - 6, domeBaseY - 10, 12, 12);
+  // ── Phototransistor (black bullet on legs) ──
+  var baseY = yTop - 4;
+  var bodyH = 14, r = 6;
+  var domeTopY = baseY - bodyH - r;
+
+  // legs
+  ctx.strokeStyle = '#b0b8c8';
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.arc(domeX, domeBaseY - 10, 6, Math.PI, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = '#2a2a2a';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(domeX - 6, domeBaseY - 10, 12, 12);
-  ctx.beginPath();
-  ctx.arc(domeX, domeBaseY - 10, 6, Math.PI, 0);
+  ctx.moveTo(x - 3, baseY); ctx.lineTo(x - 4, padY);
+  ctx.moveTo(x + 3, baseY); ctx.lineTo(x + 4, padY);
   ctx.stroke();
 
-  // subtle lens shine
-  ctx.save();
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(domeX - 2, domeBaseY - 14, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // IR halo when a flame is detected
+  var target = active ? 1 : 0;
+  if (typeof c._fl !== 'number') c._fl = target;
+  c._fl += (target - c._fl) * 0.2;
+  if (Math.abs(target - c._fl) < 0.02) c._fl = target;
 
-  // IR glow when detected
-  if (detected && wired) {
+  if (c._fl > 0.05) {
     ctx.save();
-    ctx.globalAlpha = 0.2;
+    ctx.globalAlpha = 0.28 * c._fl;
     ctx.fillStyle = '#ff4400';
     ctx.beginPath();
-    ctx.arc(domeX, domeBaseY - 16, 9, 0, Math.PI * 2);
+    ctx.arc(x, domeTopY + r, r + 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  //  Blue trim potentiometer (center-right)
-  ctx.fillStyle = '#1a55cc';
-  ctx.fillRect(x + 2, y - 18, 18, 18);
-  ctx.strokeStyle = '#4488ff';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 2, y - 18, 18, 18);
-  // pot dial
-  ctx.fillStyle = '#2266dd';
-  ctx.beginPath();
-  ctx.arc(x + 11, y - 9, 6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#88aaff';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(x + 11, y - 15);
-  ctx.lineTo(x + 11, y - 9);
-  ctx.stroke();
-
-  //  LM393 chip (left side)
+  // bullet body
   ctx.fillStyle = '#111';
-  ctx.fillRect(x - 26, y - 14, 22, 16);
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 0.5;
-  ctx.strokeRect(x - 26, y - 14, 22, 16);
-  // chip notch
+  ctx.strokeStyle = '#2a2a2a';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(x - r, baseY);
+  ctx.lineTo(x - r, baseY - bodyH);
+  ctx.arc(x, baseY - bodyH, r, Math.PI, 0);
+  ctx.lineTo(x + r, baseY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // base flange
   ctx.fillStyle = '#222';
+  ctx.fillRect(x - r - 1.5, baseY - 2, r * 2 + 3, 2.5);
+  // lens shine
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x - r + 1.5, baseY - bodyH - 2, 1.8, bodyH);
   ctx.beginPath();
-  ctx.arc(x - 15, y - 14, 2.5, 0, Math.PI);
+  ctx.arc(x - 2, domeTopY + 3, 1.8, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#444';
-  ctx.font = '4px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('LM393', x - 15, y - 4);
+  ctx.restore();
 
-  //  Two small indicator LEDs (left edge, stacked)
-  // PWR LED (red)
-  ctx.fillStyle = detected && wired ? '#ff2200' : '#550000';
+  // ── Row of 4 SMD parts ──
+  var rowY = yTop + 12;
+  [-13.5, -4.5, 4.5, 13.5].forEach(function(dx) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(x + dx - 3, rowY, 6, 8);
+    ctx.fillStyle = '#9aa0aa';
+    ctx.fillRect(x + dx - 3, rowY, 6, 1.6);
+    ctx.fillRect(x + dx - 3, rowY + 6.4, 6, 1.6);
+  });
+
+  // ── LM393 chip (left) ──
+  var icX = x - 19, icY = yTop + 26, icW = 16, icH = 14;
+  ctx.fillStyle = '#9aa0aa';
+  for (var pi = 0; pi < 4; pi++) {
+    ctx.fillRect(icX + 1.5 + pi * 3.7, icY - 1.5, 1.5, 1.5);
+    ctx.fillRect(icX + 1.5 + pi * 3.7, icY + icH, 1.5, 1.5);
+  }
+  ctx.fillStyle = '#111';
+  ctx.fillRect(icX, icY, icW, icH);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 0.4;
+  ctx.strokeRect(icX, icY, icW, icH);
+  ctx.fillStyle = '#1a1a1a';
   ctx.beginPath();
-  ctx.arc(x - 24, y + 8, 3, 0, Math.PI * 2);
+  ctx.arc(icX + 3, icY + 3, 1.2, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#ff4444';
+  ctx.fillStyle = '#888';
+  ctx.font = '3px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('LM393', icX + icW / 2, icY + icH / 2 + 3);
+
+  // ── Sensitivity trimpot (right) ──
+  ctx.fillStyle = '#1a55cc';
+  ctx.fillRect(x + 3, yTop + 25, 16, 16);
+  ctx.strokeStyle = '#4488ff';
+  ctx.lineWidth = 0.6;
+  ctx.strokeRect(x + 3, yTop + 25, 16, 16);
+  ctx.fillStyle = '#cfd3d8';
+  ctx.beginPath();
+  ctx.arc(x + 11, yTop + 33, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#666';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(x + 11, yTop + 29.5); ctx.lineTo(x + 11, yTop + 36.5);
+  ctx.moveTo(x + 7.5, yTop + 33);  ctx.lineTo(x + 14.5, yTop + 33);
+  ctx.stroke();
+
+  // ── Two small SMD resistors ──
+  [-13, 5].forEach(function(dx) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(x + dx, yTop + 46, 8, 4);
+    ctx.fillStyle = '#9aa0aa';
+    ctx.fillRect(x + dx, yTop + 46, 1.5, 4);
+    ctx.fillRect(x + dx + 6.5, yTop + 46, 1.5, 4);
+  });
+
+  // ── Mounting hole ──
+  var holeCy = yTop + 60;
+  ctx.fillStyle = '#cfd3d8';
+  ctx.beginPath();
+  ctx.arc(x, holeCy, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e8e9e4';
+  ctx.beginPath();
+  ctx.arc(x, holeCy, 4.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#9aa0a8';
   ctx.lineWidth = 0.5;
   ctx.stroke();
 
-  // DO LED (green)
-  ctx.fillStyle = detected && wired ? '#00ff44' : '#004411';
-  ctx.beginPath();
-  ctx.arc(x - 24, y + 16, 3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = '#44ff88';
+  // ── LEDs: left = digital output (green), right = power (red) ──
+  ctx.fillStyle = active ? '#22dd55' : '#11371d';
+  ctx.fillRect(x - 19, holeCy - 4, 5, 8);
+  ctx.strokeStyle = active ? '#5fff8a' : '#0a2412';
   ctx.lineWidth = 0.5;
-  ctx.stroke();
+  ctx.strokeRect(x - 19, holeCy - 4, 5, 8);
 
-  //  Small resistors on PCB
-  ctx.fillStyle = '#0d0d0d';
-  ctx.fillRect(x - 4,  y + 2,  10, 5);
-  ctx.fillRect(x + 8,  y + 2,  10, 5);
-  ctx.fillRect(x - 14, y - 20, 10, 5);
-  ctx.strokeStyle = '#222';
-  ctx.lineWidth = 0.3;
-  ctx.strokeRect(x - 4,  y + 2,  10, 5);
-  ctx.strokeRect(x + 8,  y + 2,  10, 5);
-  ctx.strokeRect(x - 14, y - 20, 10, 5);
+  ctx.fillStyle = wired ? '#ff5566' : '#3a1a1e';
+  ctx.fillRect(x + 14, holeCy - 4, 5, 8);
+  ctx.strokeStyle = wired ? '#ff99a3' : '#240d10';
+  ctx.strokeRect(x + 14, holeCy - 4, 5, 8);
 
-  //  Label
-  ctx.fillStyle = '#ffffff55';
-  ctx.font = 'bold 5px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('IR FLAME', x, y - 19);
-
-  //  Animated flame above sensor
+  // ── Animated flame above the sensor ──
   var t = Date.now() / 120;
-  var flickerH = detected && wired ? (18 + Math.sin(t * 2.1) * 4 + Math.sin(t * 3.7) * 2) : 0;
-  var flickerW = detected && wired ? (7  + Math.sin(t * 1.8) * 2) : 0;
+  var fl = c._fl;
+  if (fl > 0.02) {
+    var fx = x, fy = domeTopY - 3;
+    var fh = fl * (18 + Math.sin(t * 2.1) * 4 + Math.sin(t * 3.7) * 2);
+    var fw = fl * (7 + Math.sin(t * 1.8) * 2);
 
-  if (detected && wired && flickerH > 0) {
     // outer flame (orange)
     ctx.beginPath();
-    ctx.moveTo(x + 14, y - 36 - flickerH);
-    ctx.bezierCurveTo(
-      x + 14 + flickerW,     y - 36 - flickerH * 0.5,
-      x + 14 + flickerW * 1.3, y - 36,
-      x + 14,                y - 36
-    );
-    ctx.bezierCurveTo(
-      x + 14 - flickerW * 1.3, y - 36,
-      x + 14 - flickerW,     y - 36 - flickerH * 0.5,
-      x + 14,                y - 36 - flickerH
-    );
+    ctx.moveTo(fx, fy - fh);
+    ctx.bezierCurveTo(fx + fw, fy - fh * 0.5, fx + fw * 1.3, fy, fx, fy);
+    ctx.bezierCurveTo(fx - fw * 1.3, fy, fx - fw, fy - fh * 0.5, fx, fy - fh);
     ctx.fillStyle = 'rgba(255,100,0,0.85)';
     ctx.fill();
 
     // inner flame (yellow)
-    var iH = flickerH * 0.6;
-    var iW = flickerW * 0.55;
+    var ih = fh * 0.6, iw = fw * 0.55;
     ctx.beginPath();
-    ctx.moveTo(x + 14, y - 36 - iH);
-    ctx.bezierCurveTo(
-      x + 14 + iW, y - 36 - iH * 0.4,
-      x + 14 + iW, y - 36,
-      x + 14,      y - 36
-    );
-    ctx.bezierCurveTo(
-      x + 14 - iW, y - 36,
-      x + 14 - iW, y - 36 - iH * 0.4,
-      x + 14,      y - 36 - iH
-    );
+    ctx.moveTo(fx, fy - ih);
+    ctx.bezierCurveTo(fx + iw, fy - ih * 0.4, fx + iw, fy, fx, fy);
+    ctx.bezierCurveTo(fx - iw, fy, fx - iw, fy - ih * 0.4, fx, fy - ih);
     ctx.fillStyle = 'rgba(255,220,50,0.9)';
     ctx.fill();
 
-    // glow
+    // soft glow
     ctx.save();
-    ctx.globalAlpha = 0.15;
+    ctx.globalAlpha = 0.15 * fl;
     ctx.fillStyle = '#ff6600';
     ctx.beginPath();
-    ctx.arc(x + 14, y - 36 - flickerH * 0.4, flickerH * 0.9, 0, Math.PI * 2);
+    ctx.arc(fx, fy - fh * 0.4, fh * 0.9 + 4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-
-    requestAnimationFrame(function() { if (typeof draw === 'function') draw(); });
   }
 
-  //  Status
-  ctx.fillStyle = detected && wired ? '#ff6600' : '#3a4a5a';
-  ctx.font = '6px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(detected && wired ? '● FLAME!' : '○ CLEAR', x, y + 46);
+  // keep animating while a flame is showing or easing (guarded)
+  if ((active || c._fl !== target) && !c._rafPending) {
+    c._rafPending = true;
+    requestAnimationFrame(function() {
+      c._rafPending = false;
+      if (typeof draw === 'function') draw();
+    });
+  }
 
-  //  Analog slider (right side)
+  // ── Analog slider (right side, unchanged behavior) ──
   var slx = x + 36, slh = 44;
   ctx.fillStyle = '#111';
   ctx.fillRect(slx, y - slh / 2, 4, slh);
-  var sv = Math.min(Math.max(c.state.analog / 4095, 0), 1);
+  var sv = Math.min(Math.max((c.state.analog ?? 4095) / 4095, 0), 1);
   var sky = y + slh / 2 - sv * slh;
-  ctx.fillStyle = detected && wired ? '#ff6600' : '#3a4a5a';
+  ctx.fillStyle = active ? '#ff6600' : '#3a4a5a';
   ctx.beginPath();
   ctx.arc(slx + 2, sky, 6, 0, Math.PI * 2);
   ctx.fill();
   c._slider = { x: slx, y: y - slh / 2, w: 4, h: slh, knobX: slx + 2, knobY: sky, knobR: 8 };
 
-  //  4 pins at bottom (AO, DO, GND, VCC)
+  // ── Pins: AO, DO, GND, VCC ──
   var pinDefs = [
-    { idx: 0, dx: -18, color: '#a78bfa', label: 'AO' },
-    { idx: 1, dx:  -6, color: '#3ddc84', label: 'DO' },
-    { idx: 2, dx:   6, color: '#8b7355', label: 'G'  },
-    { idx: 3, dx:  18, color: '#ff5566', label: 'V'  }
+    { idx: 0, dx: -18, color: '#a78bfa', label: 'AO'  },
+    { idx: 1, dx:  -6, color: '#3ddc84', label: 'DO'  },
+    { idx: 2, dx:   6, color: '#8b7355', label: 'GND' },
+    { idx: 3, dx:  18, color: '#ff5566', label: 'VCC' }
   ];
 
   pinDefs.forEach(function(pd) {
     var pin    = c.pins[pd.idx];
     var px     = x + pd.dx;
-    var legTop = y + 32;
-    var dotY   = legTop + 12;
+    var legTop = y + pcbH / 2;
+    var dotY   = legTop + 10;
 
     pin.x = px;
     pin.y = dotY;
 
-    // metal leg
     ctx.strokeStyle = '#b0b8c8';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
@@ -2563,7 +2599,318 @@ function drawFlame(c) {
     ctx.lineTo(px, dotY);
     ctx.stroke();
 
-    // shine
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px - 0.5, legTop);
+    ctx.lineTo(px - 0.5, dotY);
+    ctx.stroke();
+
+    ctx.fillStyle = pd.color;
+    ctx.beginPath();
+    ctx.arc(px, dotY, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#8890a8';
+    ctx.font = 'bold 6px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(pd.label, px, dotY + 11);
+  });
+
+  // ── Status text (only when wired, so it never collides with NOT WIRED) ──
+  if (wired) {
+    ctx.fillStyle = active ? '#ff6600' : '#3a4a5a';
+    ctx.font = '6px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(active ? '● FLAME!' : '○ CLEAR', x, y + pcbH / 2 + 32);
+  }
+
+  ctx.restore();
+}
+function drawHW201(c) {
+  var x = c.x, y = c.y;
+  var detected = !!c.state.detected;
+  var wired = typeof isComponentWired === 'function' ? isComponentWired(c) : true;
+  var active = detected && wired;
+
+  ctx.save();
+
+  // ── PCB (same size/colors as SW-420) ──
+  var pcbW = 40, pcbH = 92;
+  var yTop = y - pcbH / 2;
+
+  ctx.fillStyle = '#1a3a8a';
+  ctx.fillRect(x - pcbW / 2, yTop, pcbW, pcbH);
+  ctx.strokeStyle = '#2a5acc';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x - pcbW / 2, yTop, pcbW, pcbH);
+  ctx.strokeStyle = '#2a4ab0';
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(x - pcbW / 2 + 1, yTop + 1, pcbW - 2, pcbH - 2);
+
+  // ── IR emitter (clear) + receiver (dark) on legs ──
+  var emX = x - 9, rcX = x + 9;
+  var domeBot = yTop - 3, domeR = 6, domeTopY = yTop - 20;
+
+  ctx.strokeStyle = '#b0b8c8';
+  ctx.lineWidth = 1.1;
+  [emX, rcX].forEach(function(cx) {
+    ctx.beginPath();
+    ctx.moveTo(cx - 2.5, domeBot); ctx.lineTo(cx - 2.5, yTop + 4);
+    ctx.moveTo(cx + 2.5, domeBot); ctx.lineTo(cx + 2.5, yTop + 4);
+    ctx.stroke();
+  });
+  ctx.fillStyle = '#d8dde6';
+  [emX - 2.5, emX + 2.5, rcX - 2.5, rcX + 2.5].forEach(function(px) {
+    ctx.beginPath();
+    ctx.arc(px, yTop + 4, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  function dome(cx, fill, stroke) {
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(cx - domeR, domeBot);
+    ctx.lineTo(cx - domeR, domeTopY + domeR);
+    ctx.arc(cx, domeTopY + domeR, domeR, Math.PI, 0);
+    ctx.lineTo(cx + domeR, domeBot);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx - 2, domeTopY + domeR - 1, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  dome(emX, '#e4e4e4', '#9a9a9a');
+  dome(rcX, '#1b1b1b', '#000');
+
+  // ── Title ──
+  ctx.fillStyle = '#ffffffaa';
+  ctx.font = 'bold 5px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('HW-201', x, yTop + 14);
+
+  // ── Row of 5 SMD resistors (4th is orange) ──
+  var rowY = yTop + 19;
+  [-14, -7, 0, 7, 14].forEach(function(dx, i) {
+    ctx.fillStyle = i === 3 ? '#f0a030' : '#1a1a1a';
+    ctx.fillRect(x + dx - 2.5, rowY, 5, 7);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 0.3;
+    ctx.strokeRect(x + dx - 2.5, rowY, 5, 7);
+  });
+
+  // ── LM393 chip ──
+  ctx.fillStyle = '#111';
+  ctx.fillRect(x - 17, yTop + 33, 18, 12);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 0.4;
+  ctx.strokeRect(x - 17, yTop + 33, 18, 12);
+  ctx.fillStyle = '#1a1a1a';
+  ctx.beginPath();
+  ctx.arc(x - 14, yTop + 33, 1.2, 0, Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#888';
+  ctx.font = '3px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('LM393', x - 8, yTop + 40);
+
+  // ── Trimmer potentiometer ──
+  ctx.fillStyle = '#1a55cc';
+  ctx.fillRect(x + 3.5, yTop + 31, 15, 15);
+  ctx.strokeStyle = '#4488ff';
+  ctx.lineWidth = 0.6;
+  ctx.strokeRect(x + 3.5, yTop + 31, 15, 15);
+  ctx.fillStyle = '#eeeeee';
+  ctx.beginPath();
+  ctx.arc(x + 11, yTop + 38.5, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#aaa';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(x + 11, yTop + 35);
+  ctx.lineTo(x + 11, yTop + 42);
+  ctx.moveTo(x + 7.5, yTop + 38.5);
+  ctx.lineTo(x + 14.5, yTop + 38.5);
+  ctx.stroke();
+
+  // ── Two small SMD resistors ──
+  var row2Y = yTop + 53;
+  [-10, 10].forEach(function(dx) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(x + dx - 2.5, row2Y, 5, 7);
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 0.3;
+    ctx.strokeRect(x + dx - 2.5, row2Y, 5, 7);
+  });
+
+  // ── Mounting hole ──
+  var holeCy = yTop + 68;
+  ctx.fillStyle = '#cfd3d8';
+  ctx.beginPath();
+  ctx.arc(x, holeCy, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e8e9e4';
+  ctx.beginPath();
+  ctx.arc(x, holeCy, 4.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#9aa0a8';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+
+  // ── LEDs beside the hole: left = output (green), right = power (red) ──
+  ctx.fillStyle = active ? '#22dd55' : '#11371d';
+  ctx.fillRect(x - 17, holeCy - 2.5, 6, 5);
+  ctx.strokeStyle = active ? '#5fff8a' : '#0a2412';
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(x - 17, holeCy - 2.5, 6, 5);
+
+  ctx.fillStyle = wired ? '#ff5566' : '#3a1a1e';
+  ctx.fillRect(x + 11, holeCy - 2.5, 6, 5);
+  ctx.strokeStyle = wired ? '#ff99a3' : '#240d10';
+  ctx.lineWidth = 0.5;
+  ctx.strokeRect(x + 11, holeCy - 2.5, 6, 5);
+
+  // ── IR pulses + obstacle ──
+  var target = active ? 1 : 0;
+  if (typeof c._obs !== 'number') c._obs = target;
+  c._obs += (target - c._obs) * 0.2;
+  if (Math.abs(target - c._obs) < 0.02) c._obs = target;
+
+  var obH = 10;
+  var obBottom = y - 90;                 // face of the obstacle
+  var beamTop = domeTopY;
+  var slide = (1 - c._obs) * 16;         // slides in from above
+  var reflect = c._obs > 0.5;
+  var tt = Date.now() / 900;
+
+  // obstacle block
+  if (c._obs > 0.02) {
+    ctx.save();
+    ctx.globalAlpha = c._obs;
+    ctx.fillStyle = '#c9a26b';
+    ctx.strokeStyle = '#7a5a2a';
+    ctx.lineWidth = 1;
+    ctx.fillRect(x - 20, obBottom - obH - slide, 40, obH);
+    ctx.strokeRect(x - 20, obBottom - obH - slide, 40, obH);
+    ctx.strokeStyle = 'rgba(122,90,42,0.5)';
+    ctx.lineWidth = 0.6;
+    for (var hx = -14; hx <= 14; hx += 7) {
+      ctx.beginPath();
+      ctx.moveTo(x + hx, obBottom - obH - slide);
+      ctx.lineTo(x + hx - 4, obBottom - slide);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (wired) {
+    // faint path guide
+    ctx.strokeStyle = 'rgba(255,120,120,0.18)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    if (reflect) {
+      ctx.moveTo(emX, beamTop);
+      ctx.lineTo(x, obBottom);
+      ctx.lineTo(rcX, beamTop);
+    } else {
+      ctx.moveTo(emX, beamTop);
+      ctx.lineTo(emX, beamTop - 28);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // travelling pulses
+    for (var pi = 0; pi < 3; pi++) {
+      var p = (tt + pi / 3) % 1;
+      var px, py, a;
+
+      if (reflect) {
+        if (p < 0.5) {                        // emitter -> obstacle
+          var f1 = p * 2;
+          px = emX + (x - emX) * f1;
+          py = beamTop + (obBottom - beamTop) * f1;
+        } else {                              // obstacle -> receiver
+          var f2 = (p - 0.5) * 2;
+          px = x + (rcX - x) * f2;
+          py = obBottom + (beamTop - obBottom) * f2;
+        }
+        a = 0.9;
+      } else {                                // fly out and fade
+        px = emX;
+        py = beamTop - p * 28;
+        a = 1 - p;
+      }
+
+      ctx.fillStyle = 'rgba(255,90,90,' + a + ')';
+      ctx.shadowColor = '#ff5a5a';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(px, py, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // receiver flashes when the reflection arrives
+    if (reflect) {
+      ctx.save();
+      ctx.globalAlpha = 0.25 + 0.2 * Math.sin(Date.now() / 120);
+      ctx.fillStyle = '#ff5a5a';
+      ctx.beginPath();
+      ctx.arc(rcX, domeTopY + domeR, domeR + 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // keep animating (guarded so it can't stack up frames)
+  if ((wired || c._obs !== target) && !c._rafPending) {
+    c._rafPending = true;
+    requestAnimationFrame(function() {
+      c._rafPending = false;
+      if (typeof draw === 'function') draw();
+    });
+  }
+
+  // ── Status text ──
+  ctx.fillStyle = active ? '#ff6666' : '#3a4a5a';
+  ctx.font = '6px JetBrains Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(active ? '● OBSTACLE' : '○ CLEAR', x, y + pcbH / 2 + 14);
+
+  // ── Pins: OUT, GND, VCC ──
+  var pinDefs = [
+    { idx: 0, dx: -18, color: '#3ddc84', label: 'OUT' },
+    { idx: 1, dx:   0, color: '#8b7355', label: 'GND' },
+    { idx: 2, dx:  18, color: '#ff5566', label: 'VCC' }
+  ];
+
+  pinDefs.forEach(function(pd) {
+    var pin    = c.pins[pd.idx];
+    var px     = x + pd.dx;
+    var legTop = y + pcbH / 2;
+    var dotY   = legTop + 12;
+
+    pin.x = px;
+    pin.y = dotY;
+
+    ctx.strokeStyle = '#b0b8c8';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(px, legTop);
+    ctx.lineTo(px, dotY);
+    ctx.stroke();
+
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -2581,242 +2928,8 @@ function drawFlame(c) {
     ctx.textAlign = 'center';
     ctx.fillText(pd.label, px, dotY + 11);
   });
-}
-function drawKY032(c) {
-  var x = c.x, y = c.y;
-  var detected = !!c.state.detected;
-  var wired = typeof isComponentWired === 'function' ? isComponentWired(c) : true;
 
-  if (!c._beam) c._beam = { phase: 0 };
-  c._beam.phase = (c._beam.phase + 0.035) % 1;
-  var phase = c._beam.phase;
-
-  var pcbW = 52;
-  var pcbH = 90;
-  var pcbX = x - pcbW / 2;
-  var pcbY = y - pcbH / 2;
-
-  //
-  ctx.fillStyle = '#0a0a0a';
-  ctx.fillRect(pcbX, pcbY, pcbW, pcbH);
-  ctx.strokeStyle = detected && wired ? '#cc3300' : '#2a2a2a';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(pcbX, pcbY, pcbW, pcbH);
-  ctx.strokeStyle = '#3a3a3a';
-  ctx.lineWidth = 0.5;
-  ctx.strokeRect(pcbX + 1, pcbY + 1, pcbW - 2, pcbH - 2);
-
-  //
-  ctx.save();
-  ctx.fillStyle = '#2a2a2a';
-  ctx.font = 'bold 4px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.translate(x, y - 5);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText('IR-08H', 0, 2);
   ctx.restore();
-
-  ctx.fillStyle = '#2a2a2a';
-  ctx.font = 'bold 4px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('EN', pcbX + 6, pcbY + pcbH - 4);
-
-  // ============================================================
-  //
-  // ============================================================
-  var rcX = x - 8;
-  var rcDomeTopY = pcbY - 7;
-
-  ctx.strokeStyle = '#666'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(rcX - 2, pcbY); ctx.lineTo(rcX - 2, pcbY + 5); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(rcX + 2, pcbY); ctx.lineTo(rcX + 2, pcbY + 5); ctx.stroke();
-
-  // receiver dome glow when detected
-  if (detected && wired) {
-    ctx.save();
-    ctx.globalAlpha = 0.2 + Math.abs(Math.sin(phase * Math.PI * 2)) * 0.3;
-    ctx.fillStyle = '#ff6600';
-    ctx.beginPath();
-    ctx.arc(rcX, rcDomeTopY, 9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  ctx.fillStyle = '#0d0d0d';
-  ctx.beginPath(); ctx.arc(rcX, rcDomeTopY, 5, Math.PI, 0); ctx.closePath(); ctx.fill();
-  ctx.fillRect(rcX - 5, rcDomeTopY, 10, 7);
-  ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.arc(rcX, rcDomeTopY, 5, Math.PI, 0);
-  ctx.moveTo(rcX - 5, rcDomeTopY); ctx.lineTo(rcX - 5, rcDomeTopY + 7);
-  ctx.moveTo(rcX + 5, rcDomeTopY); ctx.lineTo(rcX + 5, rcDomeTopY + 7);
-  ctx.stroke();
-  ctx.save(); ctx.globalAlpha = 0.12; ctx.fillStyle = '#aaddff';
-  ctx.beginPath(); ctx.arc(rcX - 1, rcDomeTopY - 1, 1.5, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-
-  // ============================================================
-  //
-  // ============================================================
-  var emX = x + 8;
-  var domeTopY = pcbY - 10;
-
-  ctx.strokeStyle = '#888'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(emX - 2, pcbY); ctx.lineTo(emX - 2, pcbY + 5); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(emX + 2, pcbY); ctx.lineTo(emX + 2, pcbY + 5); ctx.stroke();
-
-  ctx.fillStyle = '#c8dde8';
-  ctx.beginPath(); ctx.arc(emX, domeTopY, 6, Math.PI, 0); ctx.closePath(); ctx.fill();
-  ctx.fillRect(emX - 6, domeTopY, 12, 10);
-  ctx.strokeStyle = '#aabbc8'; ctx.lineWidth = 0.8;
-  ctx.beginPath();
-  ctx.arc(emX, domeTopY, 6, Math.PI, 0);
-  ctx.moveTo(emX - 6, domeTopY); ctx.lineTo(emX - 6, domeTopY + 10);
-  ctx.moveTo(emX + 6, domeTopY); ctx.lineTo(emX + 6, domeTopY + 10);
-  ctx.stroke();
-  ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.arc(emX - 2, domeTopY - 2, 2, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
-
-  // ============================================================
-  //
-  // ============================================================
-  ctx.fillStyle = '#050505';
-  ctx.beginPath(); ctx.arc(x, pcbY + 18, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#1e1e1e'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.arc(x, pcbY + 18, 2, 0, Math.PI * 2); ctx.fill();
-
-  // ============================================================
-  //
-  // ============================================================
-  ctx.fillStyle = '#111';
-  ctx.fillRect(pcbX + 5, y - 7, pcbW - 10, 14);
-  ctx.strokeStyle = '#222'; ctx.lineWidth = 0.5;
-  ctx.strokeRect(pcbX + 5, y - 7, pcbW - 10, 14);
-  ctx.fillStyle = '#1a1a1a';
-  ctx.beginPath(); ctx.arc(pcbX + 7, y, 1.5, 0, Math.PI * 2); ctx.fill();
-  for (var ip = 0; ip < 3; ip++) {
-    ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(pcbX + 5, y - 4 + ip * 4); ctx.lineTo(pcbX + 2, y - 4 + ip * 4); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(pcbX + pcbW - 5, y - 4 + ip * 4); ctx.lineTo(pcbX + pcbW - 2, y - 4 + ip * 4); ctx.stroke();
-  }
-
-  // ============================================================
-  //
-  // ============================================================
-  var potY = y + 22;
-  var pot1X = x - 9;
-  var pot2X = x + 9;
-
-  ctx.fillStyle = '#1a55cc';
-  ctx.fillRect(pot1X - 8, potY - 6, 16, 14);
-  ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 0.8;
-  ctx.strokeRect(pot1X - 8, potY - 6, 16, 14);
-  ctx.fillStyle = '#eeeeee';
-  ctx.beginPath(); ctx.arc(pot1X, potY + 1, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 0.6; ctx.stroke();
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(pot1X, potY - 2); ctx.lineTo(pot1X, potY + 1); ctx.stroke();
-
-  ctx.fillStyle = '#1a55cc';
-  ctx.fillRect(pot2X - 8, potY - 6, 16, 14);
-  ctx.strokeStyle = '#4488ff'; ctx.lineWidth = 0.8;
-  ctx.strokeRect(pot2X - 8, potY - 6, 16, 14);
-  ctx.fillStyle = '#eeeeee';
-  ctx.beginPath(); ctx.arc(pot2X, potY + 1, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 0.6; ctx.stroke();
-  ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(pot2X, potY - 2); ctx.lineTo(pot2X, potY + 1); ctx.stroke();
-
-  // ============================================================
-  // ANIMATIONS
-  // ============================================================
-  if (wired) {
-
-    //
-    for (var pulse = 0; pulse < 3; pulse++) {
-      var pOff  = (phase + pulse / 3) % 1;
-      var segY  = (domeTopY - 6) - pOff * 26;
-      var alpha = 0.7 - pOff * 0.6;
-
-      ctx.save();
-      ctx.globalAlpha = Math.max(0, alpha);
-      ctx.strokeStyle = '#9933ff';
-      ctx.lineWidth = 1.3;
-      ctx.setLineDash([3, 4]);
-      ctx.beginPath();
-      ctx.moveTo(emX, segY + 5);
-      ctx.lineTo(emX, segY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-
-    //
-    if (detected) {
-
-      // incoming wave arcs above receiver dome
-      for (var ring = 0; ring < 3; ring++) {
-        var rPhase  = (phase + ring * 0.33) % 1;
-        var rRadius = 4 + rPhase * 13;
-        var rAlpha  = 0.7 * (1 - rPhase);
-
-        ctx.save();
-        ctx.globalAlpha = rAlpha;
-        ctx.strokeStyle = '#ff5500';
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.arc(rcX, rcDomeTopY - 3, rRadius, Math.PI, 0);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      requestAnimationFrame(function() { if (typeof draw === 'function') draw(); });
-    }
-  }
-
-  //
-  ctx.fillStyle = detected && wired ? '#ff4400' : '#3a4a5a';
-  ctx.font = '6px JetBrains Mono, monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText(detected && wired ? '● OBS!' : '○ CLR', pcbX + pcbW + 4, y);
-
-  // ============================================================
-  //
-  // ============================================================
-  var pinDefs = [
-    { idx: 0, dx: -21, color: '#ffcc44', label: 'EN'  },
-    { idx: 1, dx:  -7, color: '#ff5566', label: 'VCC' },
-    { idx: 2, dx:   7, color: '#3ddc84', label: 'OUT' },
-    { idx: 3, dx:  21, color: '#8b7355', label: 'GND' }
-  ];
-
-  pinDefs.forEach(function(pd) {
-    var pin    = c.pins[pd.idx];
-    var px     = x + pd.dx;
-    var legTop = pcbY + pcbH;
-    var dotY   = legTop + 10;
-
-    pin.x = px;
-    pin.y = dotY;
-
-    ctx.strokeStyle = '#b0b8c8'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(px, legTop); ctx.lineTo(px, dotY); ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(px - 0.5, legTop); ctx.lineTo(px - 0.5, dotY); ctx.stroke();
-
-    ctx.fillStyle = pd.color;
-    ctx.beginPath(); ctx.arc(px, dotY, 3.5, 0, Math.PI * 2); ctx.fill();
-
-    ctx.fillStyle = '#8890a8';
-    ctx.font = 'bold 7px JetBrains Mono, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(pd.label, px, dotY + 11);
-  });
 }
 
 // ==========================================
