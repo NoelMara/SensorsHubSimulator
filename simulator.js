@@ -610,6 +610,7 @@ function applyBuzzerState(pin, playing, frequency) {
     if (!matched || !isComponentWired(comp)) continue;
     comp.state.playing = !!playing;
     if (frequency !== undefined) comp.state.frequency = frequency;
+    refreshBuzzerAudio();
     updated = true;
   }
 
@@ -846,6 +847,7 @@ function writePWMValue(pin, dutyValue, dutyMax, frequency) {
         comp.state.playing = duty > 0 && (frequency === undefined || frequency > 0);
         if (frequency !== undefined) comp.state.frequency = frequency;
         buzzerUpdated = true;
+        refreshBuzzerAudio();
       }
     }
   }
@@ -2180,7 +2182,7 @@ function getPythonLines(code) {
     .replace(/\r/g, '')
     .split('\n')
     .map(function(rawLine) {
-      return rawLine.replace(/\t/g, '    ');
+      return rawLine.replace(/\t/g, '    ').replace(/\s+#.*$/, '');
     })
     .reduce(function(list, rawLine) {
       var trimmed = rawLine.trim();
@@ -2195,6 +2197,20 @@ function getPythonLines(code) {
       });
       return list;
     }, []);
+}
+
+function stripInlineCppComment(line) {
+  var quote = null;
+  for (var i = 0; i < line.length - 1; i++) {
+    var ch = line[i];
+    if ((ch === '"' || ch === "'") && line[i - 1] !== '\\') {
+      quote = quote === ch ? null : (quote || ch);
+    }
+    if (!quote && ch === '/' && line[i + 1] === '/') {
+      return line.slice(0, i);
+    }
+  }
+  return line;
 }
 
 function collectIndentedPythonBlock(lines, startIndex, parentIndent) {
@@ -2808,7 +2824,7 @@ function runCode() {
 
   for (let i = 0; i < pLines.length; i++) {
     const raw = pLines[i];
-    const l = raw.trim();
+    const l = stripInlineCppComment(raw).trim();
     if (!l || l.startsWith('//')) continue;
 
     if (typeof libraryRegistry !== 'undefined') {
@@ -3088,6 +3104,7 @@ function executeLineWithDelay(line, phase) {
     delayPhase = phase;
     return true;
   }
+  refreshBuzzerAudio();
 
   const delayUsM = l.match(/^delayMicroseconds\s*\(\s*(.+?)\s*\)$/i);
   if (delayUsM) {
@@ -3433,4 +3450,54 @@ function toggleSerial() {
   var mon = document.getElementById('serial-monitor');
   if (!mon) return;
   mon.classList.toggle('visible');
+}
+var soundEnabled = false;
+var buzzerAudioContext = null;
+var buzzerOscillator = null;
+var buzzerGain = null;
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  var btn = document.getElementById('btn-sound');
+  if (soundEnabled) {
+    var AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtor && !buzzerAudioContext) buzzerAudioContext = new AudioCtor();
+    if (buzzerAudioContext && buzzerAudioContext.state === 'suspended') buzzerAudioContext.resume();
+  } else {
+    stopBuzzerAudio();
+  }
+  if (btn) {
+    btn.classList.toggle('green', soundEnabled);
+    btn.querySelector('.btn-label').textContent = soundEnabled ? 'Sound On' : 'Sound Off';
+    btn.querySelector('.sound-icon').textContent = soundEnabled ? '🔊' : '🔇';
+  }
+  refreshBuzzerAudio();
+}
+
+function stopBuzzerAudio() {
+  if (buzzerGain) buzzerGain.gain.setTargetAtTime(0, buzzerAudioContext.currentTime, 0.02);
+  if (buzzerOscillator) {
+    try { buzzerOscillator.stop(buzzerAudioContext.currentTime + 0.04); } catch (e) {}
+  }
+  buzzerOscillator = null;
+  buzzerGain = null;
+}
+
+function refreshBuzzerAudio() {
+  var active = soundEnabled && typeof components !== 'undefined' && components.some(function(c) {
+    return c.type === 'buzzer' && c.state.playing && isComponentWired(c);
+  });
+  if (!active || !buzzerAudioContext) { stopBuzzerAudio(); return; }
+  var buzzer = components.find(function(c) { return c.type === 'buzzer' && c.state.playing && isComponentWired(c); });
+  var frequency = Math.max(80, Math.min(4000, Number(buzzer.state.frequency) || 880));
+  if (!buzzerOscillator) {
+    buzzerOscillator = buzzerAudioContext.createOscillator();
+    buzzerGain = buzzerAudioContext.createGain();
+    buzzerOscillator.type = 'square';
+    buzzerOscillator.connect(buzzerGain);
+    buzzerGain.connect(buzzerAudioContext.destination);
+    buzzerGain.gain.value = 0.045;
+    buzzerOscillator.start();
+  }
+  buzzerOscillator.frequency.setTargetAtTime(frequency, buzzerAudioContext.currentTime, 0.02);
 }

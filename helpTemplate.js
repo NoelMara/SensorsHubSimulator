@@ -26,13 +26,13 @@ window.HELP_MODAL_HTML = `
     <div class="help-body">
 
       <div class="help-pane" id="help-pane-basics">
-        <p class="help-intro">Welcome to <strong>SensorsHub</strong> - a browser-based simulator for beginner ESP32 and Pico projects. Build one circuit at a time, wire the parts, choose the matching code mode, then run your project on the canvas.</p>
+        <p class="help-intro">Welcome to <strong>SensorsHub</strong>. You can build a small circuit, connect the parts, write code, and test the project without physical hardware.</p>
 
         <div class="help-step">
           <div class="help-step-badge">1</div>
           <div class="help-step-content">
             <div class="help-step-title">Start with the correct microcontroller</div>
-            <div class="help-step-desc">Open the <em>Build Kit</em> panel, choose <strong>&#128421; Microcontrollers</strong>, then place <strong>ESP32</strong> or <strong>Pico</strong> on the canvas. Only <strong>one microcontroller</strong> can be active at a time. Use <strong>ESP32</strong> for Arduino mode and <strong>Pico</strong> for MicroPython mode.</div>
+            <div class="help-step-desc">Open <em>Build Kit</em> and choose <strong>ESP32</strong> or <strong>Pico</strong>. Use ESP32 with <strong>Arduino</strong> code. Use Pico with <strong>MicroPython</strong> code. Start with only one board.</div>
           </div>
         </div>
 
@@ -40,7 +40,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">2</div>
           <div class="help-step-content">
             <div class="help-step-title">Add sensors, lights, and peripherals</div>
-            <div class="help-step-desc">Browse <strong>&#128161; Lights</strong>, <strong>&#128225; Sensors</strong>, and <strong>&#128295; Peripherals</strong> in the Build Kit. Place the parts near the board, then wire every required pin so the simulator can read or control them correctly.</div>
+            <div class="help-step-desc">Open <strong>Lights</strong>, <strong>Sensors</strong>, or <strong>Peripherals</strong>, then add the parts you need. Use the search box if you already know the part's name.</div>
           </div>
         </div>
 
@@ -48,7 +48,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">3</div>
           <div class="help-step-content">
             <div class="help-step-title">Wire every required pin</div>
-            <div class="help-step-desc">Select the <strong>&#12336; Wire</strong> tool, click the first pin, then click the second pin. Most modules need power, ground, and a signal pin. Missing required wires can keep a part inactive or marked as <strong>NOT WIRED</strong>.</div>
+            <div class="help-step-desc">Choose <strong>Wire</strong>, click one pin, then click the pin you want to connect it to. Connect every required pin, including power, ground, and signal pins. A <strong>NOT WIRED</strong> message means something is still missing.</div>
           </div>
         </div>
 
@@ -56,7 +56,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">4</div>
           <div class="help-step-content">
             <div class="help-step-title">Write code in the matching mode</div>
-            <div class="help-step-desc">Use the <strong>{ } Editor</strong> panel to edit the default sketch or write your own. Switch between <strong>Arduino (.ino)</strong> and <strong>MicroPython (.py)</strong> at the top of the editor. Each mode keeps its own saved code.</div>
+            <div class="help-step-desc">Open the <strong>{ } Editor</strong> and change the example code, or write your own. Choose Arduino or MicroPython to match your board.</div>
           </div>
         </div>
 
@@ -64,7 +64,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">5</div>
           <div class="help-step-content">
             <div class="help-step-title">Run the simulation and monitor output</div>
-            <div class="help-step-desc">Press <strong>&#9654; Run</strong> to start the simulation. Open <strong>&#9000; Serial</strong> to view <code>Serial.println()</code> or <code>print()</code> output, and press <strong>&#9632; Stop</strong> before changing wiring or restarting. If the board and code mode do not match, SensorsHub blocks the run and shows a warning.</div>
+            <div class="help-step-desc">Press <strong>&#9654; Run</strong> to start. Press <strong>&#9632; Stop</strong> to stop. Open <strong>Serial</strong> to see messages printed by your code. The simulator warns you if the board and code type do not match.</div>
           </div>
         </div>
 
@@ -74,7 +74,7 @@ window.HELP_MODAL_HTML = `
       </div>
 
       <div class="help-pane" id="help-pane-wiring">
-        <p class="help-intro">Wires store exact pin-to-pin connections. SensorsHub checks each component's required pins before that part can respond reliably in the simulation.</p>
+        <p class="help-intro">Wires connect pins and automatically choose a clear path around the parts. SensorsHub also checks each component's required pins before that part can respond reliably.</p>
 
         <div class="help-step">
           <div class="help-step-badge">&#12336;</div>
@@ -88,7 +88,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#10021;</div>
           <div class="help-step-content">
             <div class="help-step-title">Move components - Move tool</div>
-            <div class="help-step-desc">Click <strong>&#10021; Move</strong> or press <kbd>M</kbd>, then drag a component to reposition it. Connected wires follow the part automatically.</div>
+            <div class="help-step-desc">Click <strong>&#10021; Move</strong> or press <kbd>M</kbd>, then drag a component to reposition it. Automatic wires follow the part. A manually bent wire keeps its chosen route.</div>
           </div>
         </div>
 
@@ -109,6 +109,22 @@ window.HELP_MODAL_HTML = `
         </div>
 
         <div class="help-step">
+          <div class="help-step-badge">&#8635;</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Reset a wire route</div>
+            <div class="help-step-desc">Click a wire, then press <strong>Reset Wire</strong> in the toolbar. This removes manual bends and creates a fresh automatic route without disconnecting the pins.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-badge">&#8617;</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Undo and redo changes</div>
+            <div class="help-step-desc">Use <strong>Undo</strong> to go back one step and <strong>Redo</strong> to restore it. These buttons are also available on mobile.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
           <div class="help-step-badge">&#128465;</div>
           <div class="help-step-content">
             <div class="help-step-title">Clear the entire canvas</div>
@@ -122,7 +138,7 @@ window.HELP_MODAL_HTML = `
       </div>
 
       <div class="help-pane" id="help-pane-code">
-        <p class="help-intro">The editor supports Arduino C++ and MicroPython. Each language mode is paired with one board type so beginner projects stay predictable.</p>
+        <p class="help-intro">The editor supports two beginner-friendly code choices: Arduino C++ for ESP32 and MicroPython for Pico.</p>
 
         <div class="help-step">
           <div class="help-step-badge">&#8644;</div>
@@ -159,10 +175,13 @@ window.HELP_MODAL_HTML = `
         <div class="help-tip">
           &#128161; <strong>Libraries supported:</strong> This simulator includes built-in support for <code>DHT</code>, <code>Wire</code>, <code>Adafruit_SSD1306</code>, and <code>Servo</code>. Include them in Arduino mode just like normal sketches. Simple casts such as <code>(char)</code> and <code>(int)</code> are supported for serial-command examples.
         </div>
+        <div class="help-tip">
+          &#128161; <strong>Code tip:</strong> Python comments are supported, including comments after a statement such as <code>buzzer.value(1) # turn on</code>.
+        </div>
       </div>
 
       <div class="help-pane" id="help-pane-components">
-        <p class="help-intro">Use this list when you are not sure what a part does, which pins to connect, or how to control it in code. Each card explains the part's behavior inside SensorsHub.</p>
+        <p class="help-intro">Not sure what a part does? Find it below to see what it measures, which pins to connect, and how to use it in code.</p>
 
         <div class="help-comp-section-title">Microcontrollers</div>
         <div class="help-comp-grid">
@@ -248,7 +267,7 @@ window.HELP_MODAL_HTML = `
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128276;</span><strong>Buzzer</strong></div>
-            <span>Makes a beep sound in projects. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Use <code>tone(pin, frequency)</code> to play, <code>noTone(pin)</code> to stop, or <code>digitalWrite(pin, HIGH)</code> for a simple on/off buzzer.</span>
+            <span>Makes a beep sound in projects. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Turn on the toolbar's <strong>Sound</strong> button, then use <code>tone(pin, frequency)</code> to play and <code>noTone(pin)</code> to stop.</span>
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128223;</span><strong>OLED Display (SSD1306)</strong></div>
