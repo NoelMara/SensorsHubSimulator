@@ -181,6 +181,26 @@ function getMissingPins(comp) {
   });
 }
 
+function checkCircuit() {
+  var incomplete = components.filter(function(comp) {
+    return REQUIRED_PINS[comp.type] && getMissingPins(comp).length > 0;
+  });
+  if (!components.length) {
+    updateStatus('Add a component first');
+    return;
+  }
+  if (!incomplete.length) {
+    updateStatus('Circuit ready: all required pins are connected');
+    if (typeof showConnectionToast === 'function') showConnectionToast('Circuit ready');
+    return;
+  }
+  var first = incomplete[0];
+  var missing = getMissingPins(first).join(', ');
+  var message = getComponentLabel(first) + ' missing: ' + missing;
+  updateStatus(message);
+  if (typeof showConnectionToast === 'function') showConnectionToast(message);
+}
+
 function getComponentLabel(comp) {
   return comp && comp.label ? comp.label : (comp && comp.type ? comp.type.toUpperCase() : 'Component');
 }
