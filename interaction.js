@@ -196,6 +196,19 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   var endComp = findPinOwner(endPin);
   var stub1 = getPinStub(startPin, startComp);
   var stub2 = getPinStub(endPin, endComp);
+  var rawStub1 = { x: stub1.x, y: stub1.y };
+  var rawStub2 = { x: stub2.x, y: stub2.y };
+  var laneOffset = (lane || 0) * 18;
+  var startMcu = startComp && (startComp.type === 'esp32' || startComp.type === 'pico');
+  var endMcu = endComp && (endComp.type === 'esp32' || endComp.type === 'pico');
+
+  // Give MCU side pins separate straight exit lanes before the wire turns.
+  if (startMcu && (startPin.side === 'left' || startPin.side === 'right')) {
+    stub1.y += laneOffset;
+  }
+  if (endMcu && (endPin.side === 'left' || endPin.side === 'right')) {
+    stub2.y += laneOffset;
+  }
 
   var blocked = computeAutoWaypoints(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, stagger, lane);
 
@@ -222,9 +235,11 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   }
 
   var waypoints = [];
-  if (stub1.x !== startPin.x || stub1.y !== startPin.y) waypoints.push(stub1);
+  if (rawStub1.x !== startPin.x || rawStub1.y !== startPin.y) waypoints.push(rawStub1);
+  if (stub1.x !== rawStub1.x || stub1.y !== rawStub1.y) waypoints.push(stub1);
   waypoints = waypoints.concat(middle);
-  if (stub2.x !== endPin.x || stub2.y !== endPin.y) waypoints.push(stub2);
+  if (stub2.x !== rawStub2.x || stub2.y !== rawStub2.y) waypoints.push(stub2);
+  if (rawStub2.x !== endPin.x || rawStub2.y !== endPin.y) waypoints.push(rawStub2);
 
   return waypoints;
 }

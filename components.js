@@ -267,7 +267,7 @@ var cy = Math.round(Math.min(maxY, Math.max(minY, spawnCenterY + spawnOffset.y *
 if (type === 'esp32' || type === 'pico') {
   // MCUs are tall, so place them in the upper workspace instead of letting
   // their lower half get crowded by the Build Kit/palette area.
-  cy = Math.round(Math.min(maxY - 210, Math.max(minY, spawnCenterY * 0.55)));
+  cy = Math.round(Math.min(maxY - 210, Math.max(minY, spawnCenterY * (isCompactScreen ? 0.48 : 0.55))));
 }
 
   var comp = null;
