@@ -78,6 +78,13 @@
   <button class="btn" id="btn-toggle-code" onclick="toggleCodePanel()" title="Toggle editor">
     <span>{ }</span><span class="btn-label">Editor</span>
   </button>
+  <button class="btn secondary-action" onclick="saveProjectFile()" title="Save project">
+    <span aria-hidden="true">&#8595;</span><span class="btn-label">Save</span>
+  </button>
+  <button class="btn secondary-action" onclick="document.getElementById('project-file-input').click()" title="Load project">
+    <span aria-hidden="true">&#8593;</span><span class="btn-label">Load</span>
+  </button>
+  <input id="project-file-input" type="file" accept=".json,application/json" hidden onchange="loadProjectFile(this.files[0]); this.value=''">
 
   <div class="toolbar-sep"></div>
 
@@ -344,6 +351,69 @@ function getCode() {
   return editor
     ? editor.getValue()
     : document.getElementById('code-textarea').value;
+}
+
+function saveProjectFile() {
+  _savedContent[window.fileMode] = getCode();
+  var project = {
+    format: 'SensorsHub Simulator Project',
+    version: 1,
+    fileMode: window.fileMode,
+    code: { ino: _savedContent.ino || '', py: _savedContent.py || '' },
+    components: JSON.parse(JSON.stringify(components)),
+    wires: JSON.parse(JSON.stringify(wires))
+  };
+  var blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = 'sensorshub-project.json';
+  link.click();
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  updateStatus('Project saved');
+}
+
+function applyLoadedMode(mode) {
+  var isPy = mode === 'py';
+  window.fileMode = isPy ? 'py' : 'ino';
+  var thumb = document.getElementById('lang-toggle-thumb');
+  var lino = document.getElementById('lang-label-ino');
+  var lpy = document.getElementById('lang-label-py');
+  if (thumb) thumb.style.transform = isPy ? 'translateX(22px)' : 'translateX(0px)';
+  if (lino) lino.classList.toggle('lang-active', !isPy);
+  if (lpy) lpy.classList.toggle('lang-active', isPy);
+  if (editor) editor.setOption('mode', isPy ? 'python' : 'text/x-c++src');
+  setEditorContent(_savedContent[window.fileMode] || (isPy ? _pyTemplate : _inoTemplate),
+    isPy ? '# Write your MicroPython script here...' : '// Write your Arduino sketch here...');
+  applyModeTheme(window.fileMode);
+}
+
+function loadProjectFile(file) {
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(event) {
+    try {
+      var project = JSON.parse(event.target.result);
+      if (!project || !Array.isArray(project.components) || !Array.isArray(project.wires)) {
+        throw new Error('Invalid project file');
+      }
+      saveState();
+      _savedContent[window.fileMode] = getCode();
+      components = project.components;
+      wires = project.wires;
+      _savedContent.ino = project.code && project.code.ino || '';
+      _savedContent.py = project.code && project.code.py || '';
+      applyLoadedMode(project.fileMode === 'py' ? 'py' : 'ino');
+      if (typeof updateWireEndpointsFromPins === 'function') updateWireEndpointsFromPins();
+      if (typeof fixOffscreenComponents === 'function') fixOffscreenComponents();
+      if (typeof draw === 'function') draw();
+      updateStatus('Project loaded');
+    } catch (error) {
+      updateStatus('Could not load project file');
+      console.error(error);
+    }
+  };
+  reader.readAsText(file);
 }
 
 function clearCodeEditor() {

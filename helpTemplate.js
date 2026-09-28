@@ -68,6 +68,14 @@ window.HELP_MODAL_HTML = `
           </div>
         </div>
 
+        <div class="help-step">
+          <div class="help-step-badge">6</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Save or load a project</div>
+            <div class="help-step-desc">Use <strong>&#8595; Save</strong> to download your components, wire routes, and code as a project file. Use <strong>&#8593; Load</strong> to open that file later and continue where you stopped. Loading restores the project but does not start the simulation automatically.</div>
+          </div>
+        </div>
+
         <div class="help-tip">
           &#128161; <strong>Quick tip:</strong> To test the default blink sketch, place an <strong>ESP32</strong>, wire an LED <strong>+</strong> pin to <code>D2</code>, connect the LED <strong>-</strong> pin to <code>GND</code>, then press <strong>&#9654; Run</strong>.
         </div>
@@ -174,9 +182,6 @@ window.HELP_MODAL_HTML = `
 
         <div class="help-tip">
           &#128161; <strong>Libraries supported:</strong> This simulator includes built-in support for <code>DHT</code>, <code>Wire</code>, <code>Adafruit_SSD1306</code>, and <code>Servo</code>. Include them in Arduino mode just like normal sketches. Simple casts such as <code>(char)</code> and <code>(int)</code> are supported for serial-command examples.
-        </div>
-        <div class="help-tip">
-          &#128161; <strong>Code tip:</strong> Python comments are supported, including comments after a statement such as <code>buzzer.value(1) # turn on</code>.
         </div>
       </div>
 
