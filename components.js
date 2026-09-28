@@ -299,7 +299,13 @@ if (type === 'esp32' || type === 'pico') {
   }
 
   components.push(comp);
+  comp._newUntil = Date.now() + 1200;
   updateStatus('Added: ' + type.replace(/_/g, ' '));
+
+  if (window.innerWidth < 700 && paletteVisible) {
+    paletteVisible = false;
+    applyPaletteUIState();
+  }
 
   setTimeout(function() {
     fixOffscreenComponents();

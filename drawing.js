@@ -563,6 +563,25 @@ function drawWireControls(w) {
 
 function drawAllComponents() {
   components.forEach(function(c) {
+    if (c._newUntil && c._newUntil > Date.now()) {
+      var nb = getComponentBounds(c);
+      var pulse = 0.55 + 0.35 * Math.sin(Date.now() / 90);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(94,184,255,' + pulse + ')';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.strokeRect(nb.left - 8, nb.top - 8, nb.width + 16, nb.height + 16);
+      ctx.setLineDash([]);
+      ctx.restore();
+      if (!c._newFramePending) {
+        c._newFramePending = true;
+        requestAnimationFrame(function() {
+          c._newFramePending = false;
+          if (typeof draw === 'function') draw();
+        });
+      }
+    }
+
     if      (c.type === 'esp32')      drawESP32(c);
     else if (c.type === 'pico')       drawPico(c);
     else if (c.type === 'led')        drawLED(c);
