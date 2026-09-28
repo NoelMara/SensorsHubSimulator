@@ -96,34 +96,77 @@ function segmentIntersectsRect(x1, y1, x2, y2, rect) {
   return false;
 }
 
-function findBlockingComponent(x1, y1, x2, y2, excludeComps) {
+function findBlockingComponents(x1, y1, x2, y2, excludeComps) {
+  var blocked = [];
   for (var i = 0; i < components.length; i++) {
     var comp = components[i];
     if (excludeComps.indexOf(comp) !== -1) continue;
     var rect = getComponentBounds(comp);
-    if (segmentIntersectsRect(x1, y1, x2, y2, rect)) return rect;
+    // Keep wires a little away from component bodies and their labels.
+    var padding = 14;
+    var safeRect = {
+      left: rect.left - padding,
+      top: rect.top - padding,
+      right: rect.right + padding,
+      bottom: rect.bottom + padding
+    };
+    if (segmentIntersectsRect(x1, y1, x2, y2, safeRect)) blocked.push(safeRect);
   }
-  return null;
+  return blocked;
 }
 
-function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger) {
-  var rect = findBlockingComponent(x1, y1, x2, y2, excludeComps);
-  if (!rect) return [];
+function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
+  var points = [{ x: x1, y: y1 }];
+  var current = { x: x1, y: y1 };
+  var margin = 18 + (stagger || 0) * 8;
 
-  var candidates = [{ x: x1, y: y2 }, { x: x2, y: y1 }];
+  // Resolve one blocking component at a time. Each pass checks every
+  // component, so a detour cannot simply run through the next component.
+  for (var pass = 0; pass < 8; pass++) {
+    var blocked = findBlockingComponents(current.x, current.y, x2, y2, excludeComps);
+    if (!blocked.length) break;
 
-  for (var i = 0; i < candidates.length; i++) {
-    var wp = candidates[i];
-    if (!segmentIntersectsRect(x1, y1, wp.x, wp.y, rect) &&
-        !segmentIntersectsRect(wp.x, wp.y, x2, y2, rect)) {
-      return [wp];
+    var rect = blocked[0];
+    var laneOffset = (lane || 0) * 18;
+    var candidates = [
+      { x: rect.left - margin - laneOffset, y: current.y },
+      { x: rect.right + margin + laneOffset, y: current.y },
+      { x: current.x, y: rect.top - margin },
+      { x: current.x, y: rect.bottom + margin }
+    ];
+    var chosen = null;
+
+    for (var i = 0; i < candidates.length; i++) {
+      var candidate = candidates[i];
+      var nextBlocked = findBlockingComponents(candidate.x, candidate.y, x2, y2, excludeComps);
+      if (!nextBlocked.length || nextBlocked.length < blocked.length) {
+        chosen = candidate;
+        break;
+      }
+    }
+
+    if (!chosen) {
+      chosen = {
+        x: current.x < (rect.left + rect.right) / 2
+          ? rect.left - margin - laneOffset
+          : rect.right + margin + laneOffset,
+        y: current.y
+      };
+    }
+
+    if (chosen.x !== current.x || chosen.y !== current.y) {
+      points.push(chosen);
+      current = chosen;
+    } else {
+      break;
     }
   }
 
-  var margin = 55 + (stagger || 0) * 12;
-  var midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
-  var cornerX = midX < (rect.left + rect.right) / 2 ? rect.left - margin : rect.right + margin;
-  return [{ x: cornerX, y: y1 }, { x: cornerX, y: y2 }];
+  if (current.x !== x2 && current.y !== y2) {
+    points.push({ x: x2, y: current.y });
+  }
+  points.shift();
+  return points;
 }
 
 function getPinStub(pin, comp, stubLen) {
@@ -149,15 +192,17 @@ function getPinStub(pin, comp, stubLen) {
   return { x: pin.x, y: pin.y };
 }
 
-function buildWireWaypoints(startPin, endPin, excludeComps, stagger) {
+function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   var startComp = findPinOwner(startPin);
   var endComp = findPinOwner(endPin);
   var stub1 = getPinStub(startPin, startComp);
   var stub2 = getPinStub(endPin, endComp);
 
-  var blocked = computeAutoWaypoints(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, stagger);
+  var blocked = computeAutoWaypoints(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, stagger, lane);
 
   var middle;
+  // Give nearby wires their own lanes instead of stacking them on one line.
+  var laneOffset = (lane || 0) * 18;
   if (blocked.length > 0) {
     middle = blocked;
   } else {
@@ -165,15 +210,15 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger) {
     var horiz2 = endPin.side === 'left' || endPin.side === 'right';
 
     if (horiz1 && horiz2) {
-      var midX = (stub1.x + stub2.x) / 2;
+      var midX = (stub1.x + stub2.x) / 2 + laneOffset;
       middle = [{ x: midX, y: stub1.y }, { x: midX, y: stub2.y }];
     } else if (!horiz1 && !horiz2) {
-      var midY = (stub1.y + stub2.y) / 2;
+      var midY = (stub1.y + stub2.y) / 2 + laneOffset;
       middle = [{ x: stub1.x, y: midY }, { x: stub2.x, y: midY }];
     } else if (horiz1) {
-      middle = [{ x: stub2.x, y: stub1.y }];
+      middle = [{ x: stub2.x + laneOffset, y: stub1.y }, { x: stub2.x + laneOffset, y: stub2.y }];
     } else {
-      middle = [{ x: stub1.x, y: stub2.y }];
+      middle = [{ x: stub1.x + laneOffset, y: stub1.y }, { x: stub1.x + laneOffset, y: stub2.y }];
     }
   }
 
@@ -231,6 +276,21 @@ function syncWireEndpoints(w) {
 function syncAllWireEndpoints() {
   wires.forEach(function(w) {
     syncWireEndpoints(w);
+  });
+}
+
+function rerouteAutomaticWires() {
+  wires.forEach(function(w, wi) {
+    if (w.autoRoute === false) return;
+    if (typeof w.lane !== 'number') w.lane = (wi % 5) - 2;
+    var p1 = findPinById(w.pin1Id);
+    var p2 = findPinById(w.pin2Id);
+    if (!p1 || !p2) return;
+    w.x1 = p1.x;
+    w.y1 = p1.y;
+    w.x2 = p2.x;
+    w.y2 = p2.y;
+    w.waypoints = buildWireWaypoints(p1, p2, [], 0, w.lane);
   });
 }
 
@@ -432,6 +492,8 @@ function handleCanvasMouseMove(e) {
     }
 
     if (dragging.type === 'wire-waypoint') {
+      // A manually placed bend becomes part of the user's chosen route.
+      dragging.wire.autoRoute = false;
       var snappedWirePoint = snapWirePointToGrid({ x: mouseX, y: mouseY });
       dragging.wire.waypoints[dragging.wpIndex].x = snappedWirePoint.x;
       dragging.wire.waypoints[dragging.wpIndex].y = snappedWirePoint.y;
@@ -453,6 +515,17 @@ function handleCanvasMouseMove(e) {
     }
 
     syncAllWireEndpoints();
+
+    // Automatic wires follow moved components. Manually edited wires keep
+    // their chosen bends while their endpoints remain attached to the pins.
+    wires.forEach(function(w, wi) {
+      if (w.autoRoute === false) return;
+      if (typeof w.lane !== 'number') w.lane = (wi % 5) - 2;
+      var p1 = findPinById(w.pin1Id);
+      var p2 = findPinById(w.pin2Id);
+      if (!p1 || !p2) return;
+      w.waypoints = buildWireWaypoints(p1, p2, [], 0, w.lane || 0);
+    });
 
     dragging.sx = mouseX;
     dragging.sy = mouseY;
@@ -663,17 +736,6 @@ function handleCanvasMouseDown(e) {
           return;
         }
       }
-      if (c.type === 'relay') {
-        var rdx = x - c.x;
-        var rdy = y - c.y;
-        if (rdx * rdx + rdy * rdy < 400) {
-          saveState();
-          c.state.active = !c.state.active;
-          updateStatus('Relay: ' + (c.state.active ? 'ON' : 'OFF'));
-          draw();
-          return;
-        }
-      }
     }
   }
 
@@ -700,6 +762,7 @@ function handleCanvasMouseDown(e) {
         };
         newWp = snapWirePointToGrid(newWp);
 
+        w.autoRoute = false;
         w.waypoints.splice(seg, 0, newWp);
         dragging = { type: 'wire-waypoint', wire: w, wpIndex: seg };
         canvas.style.cursor = 'grabbing';
@@ -828,11 +891,10 @@ function handleCanvasMouseDown(e) {
 
     var startComp = findPinOwner(wireStart);
     var endComp = findPinOwner(pin);
-    var existingCount = wires.filter(function(w) {
-      return w.pin1Id.indexOf(startComp.id) === 0 || w.pin2Id.indexOf(startComp.id) === 0 ||
-             w.pin1Id.indexOf(endComp.id) === 0 || w.pin2Id.indexOf(endComp.id) === 0;
-    }).length;
-    var autoWaypoints = buildWireWaypoints(wireStart, pin, [], existingCount);
+    // Use a stable lane across the whole canvas. Counting only wires attached
+    // to one component caused unrelated wires to reuse the same path.
+    var wireLane = (wires.length % 5) - 2;
+    var autoWaypoints = buildWireWaypoints(wireStart, pin, [], 0, wireLane);
 
     wires.push({
       x1: wireStart.x,
@@ -842,7 +904,9 @@ function handleCanvasMouseDown(e) {
       color: wc,
       pin1Id: pin1Id,
       pin2Id: pin2Id,
-      waypoints: autoWaypoints
+      waypoints: autoWaypoints,
+      lane: wireLane,
+      autoRoute: true
     });
 
     updateStatus('Connected: ' + wireStart.name + ' → ' + pin.name);
@@ -885,6 +949,7 @@ function handleCanvasDoubleClick(e) {
       var dy = y - wps[wpi].y;
       if (dx * dx + dy * dy < 100) {
         saveState();
+        w.autoRoute = false;
         w.waypoints.splice(wpi, 1);
         updateStatus('Waypoint removed');
         draw();

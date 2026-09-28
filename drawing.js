@@ -590,6 +590,12 @@ function drawAllComponents() {
 function draw() {
   if (!ctx || !canvas) return;
 
+  // Upgrade older automatic wires to the current routing layout once.
+  if (!window._wireRoutingUpdated && typeof rerouteAutomaticWires === 'function') {
+    window._wireRoutingUpdated = true;
+    rerouteAutomaticWires();
+  }
+
   ctx.clearRect(0, 0, canvasLogicalWidth, canvasLogicalHeight);
 
   ctx.strokeStyle = 'rgba(255,255,255,0.025)';
