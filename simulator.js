@@ -196,7 +196,10 @@ function checkCircuit() {
   }
   var first = incomplete[0];
   var missing = getMissingPins(first).join(', ');
-  var message = getComponentLabel(first) + ' missing: ' + missing;
+  var countLabel = incomplete.length === 1
+    ? '1 component needs wiring'
+    : incomplete.length + ' components need wiring';
+  var message = countLabel + ' · ' + getComponentLabel(first) + ' missing: ' + missing;
   updateStatus(message);
   if (typeof showConnectionToast === 'function') showConnectionToast(message);
 }

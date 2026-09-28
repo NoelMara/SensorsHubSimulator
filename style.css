@@ -917,13 +917,14 @@ canvas {
   }
  
   /* ── Brand ── */
-  .brand-block  { min-width: 132px; }
-  .brand-badge  { font-size: 8px; }
-  .logo         { font-size: 16px; }
+  .brand-block  { min-width: 112px; }
+  .brand-badge  { display: block; font-size: 6px; letter-spacing: .04em; }
+  .logo         { font-size: 14px; }
  
   /* ── Toolbar ── */
   .toolbar-sep, #status, #btn-toggle-code { display: none; }
-  #toolbar { gap: 6px; padding: 0 10px; }
+  #toolbar { gap: 6px; padding: 0 10px; overflow-x: auto; overflow-y: hidden; }
+  #toolbar::-webkit-scrollbar { display: none; }
  
   /* ── Buttons ── */
   .btn { min-height: 34px; padding: 7px 9px; font-size: 10px; gap: 4px; }
