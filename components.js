@@ -13,6 +13,7 @@ let wireStart = null;
 let dragging = null;
 let mouseX = 0, mouseY = 0;
 let actionHistory = [];
+let redoHistory = [];
 let paletteVisible = true
 let resizeTimeout = null;
 
@@ -126,6 +127,16 @@ function saveState() {
   });
 
   if (actionHistory.length > 50) actionHistory.shift();
+  redoHistory = [];
+}
+
+function restoreEditorState(state) {
+  components = state.components;
+  wires = state.wires;
+  wireStart = null;
+  updateWireEndpointsFromPins();
+  fixOffscreenComponents();
+  if (typeof draw === 'function') draw();
 }
 
 function undo() {
@@ -134,15 +145,27 @@ function undo() {
     return;
   }
 
+  redoHistory.push({
+    components: JSON.parse(JSON.stringify(components)),
+    wires: JSON.parse(JSON.stringify(wires))
+  });
   var prev = actionHistory.pop();
-  components = prev.components;
-  wires = prev.wires;
-  wireStart = null;
-
-  updateWireEndpointsFromPins();
-  fixOffscreenComponents();
+  restoreEditorState(prev);
   updateStatus('Undo');
-  if (typeof draw === 'function') draw();
+}
+
+function redo() {
+  if (redoHistory.length === 0) {
+    updateStatus('Nothing to redo');
+    return;
+  }
+  actionHistory.push({
+    components: JSON.parse(JSON.stringify(components)),
+    wires: JSON.parse(JSON.stringify(wires))
+  });
+  var next = redoHistory.pop();
+  restoreEditorState(next);
+  updateStatus('Redo');
 }
 
 var canvasLogicalWidth = 0;

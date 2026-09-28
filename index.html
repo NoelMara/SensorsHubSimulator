@@ -49,8 +49,11 @@
 
   <div class="toolbar-sep"></div>
 
-  <button class="btn yellow" onclick="undo()" title="Undo (Ctrl+Z)">
+  <button class="btn yellow" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)">
     <span>↩</span><span class="btn-label">Undo</span>
+  </button>
+  <button class="btn yellow" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)">
+    <span>↪</span><span class="btn-label">Redo</span>
   </button>
   <button class="btn" onclick="clearAll()" title="Clear all">
     <span>🗑</span><span class="btn-label">Clear</span>

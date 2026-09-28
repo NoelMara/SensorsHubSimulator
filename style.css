@@ -894,6 +894,7 @@ canvas {
   /* ── Buttons ── */
   .btn { min-height: 34px; padding: 7px 9px; font-size: 10px; gap: 4px; }
   .btn .btn-label { display: none; }
+  #btn-undo .btn-label, #btn-redo .btn-label { display: inline; }
   #code-buttons { gap: 8px; padding: 10px; }
   #code-buttons .btn { flex: 1 1 0; justify-content: center; }
   .code-clear-btn { margin-left: 0; flex-basis: 100%; }
