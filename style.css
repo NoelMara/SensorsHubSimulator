@@ -533,6 +533,30 @@ html, body {
   border-top: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(9,17,26,0.93), rgba(7,13,20,0.96));
 }
+.btn.secondary-action {
+  color: var(--text-dim);
+  border-color: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.035);
+}
+.btn.secondary-action:hover {
+  color: var(--text-bright);
+  border-color: var(--border-strong);
+}
+.btn#btn-wire.active {
+  color: #bfe5ff; border-color: #5eb8ff;
+  background: linear-gradient(180deg, rgba(31,90,132,.98), rgba(18,61,93,.98));
+  box-shadow: 0 0 0 2px rgba(94,184,255,.18), 0 0 18px rgba(94,184,255,.28);
+}
+.btn#btn-move.active {
+  color: #d6c7ff; border-color: #9b87ff;
+  background: linear-gradient(180deg, rgba(65,52,108,.98), rgba(43,34,78,.98));
+  box-shadow: 0 0 0 2px rgba(155,135,255,.18), 0 0 18px rgba(155,135,255,.24);
+}
+.btn#btn-delete.active {
+  color: #ffd1d5; border-color: #ff707b;
+  background: linear-gradient(180deg, rgba(105,35,45,.98), rgba(72,23,31,.98));
+  box-shadow: 0 0 0 2px rgba(255,112,123,.18), 0 0 18px rgba(255,112,123,.24);
+}
 .code-clear-btn { margin-left: auto; }
 
 /* ============================================================
