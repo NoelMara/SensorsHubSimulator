@@ -4,6 +4,7 @@
 // ==========================================
 
 if (!window.zoomLevel) window.zoomLevel = 1;
+var selectedWire = null;
 
 var _heldButton = null;
 var _touchState = {
@@ -112,6 +113,36 @@ function findBlockingComponents(x1, y1, x2, y2, excludeComps) {
     if (segmentIntersectsRect(x1, y1, x2, y2, safeRect)) blocked.push(safeRect);
   }
   return blocked;
+}
+
+function resetSelectedWireRoute() {
+  if (!selectedWire) {
+    updateStatus('Select a wire first');
+    return;
+  }
+  var p1 = findPinById(selectedWire.pin1Id);
+  var p2 = findPinById(selectedWire.pin2Id);
+  if (!p1 || !p2) return;
+  saveState();
+  selectedWire.autoRoute = true;
+  if (typeof selectedWire.lane !== 'number') selectedWire.lane = 0;
+  selectedWire.waypoints = buildWireWaypoints(p1, p2, [], 0, selectedWire.lane);
+  syncWireEndpoints(selectedWire);
+  updateStatus('Wire route reset');
+  draw();
+}
+
+function showConnectionToast(message) {
+  var toast = document.getElementById('connection-toast');
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.remove('hidden');
+  toast.classList.add('visible');
+  clearTimeout(showConnectionToast._timer);
+  showConnectionToast._timer = setTimeout(function() {
+    toast.classList.remove('visible');
+    setTimeout(function() { toast.classList.add('hidden'); }, 220);
+  }, 2000);
 }
 
 function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
@@ -756,6 +787,7 @@ function handleCanvasMouseDown(e) {
   if (tool !== 'delete') {
     var wireHit = findWireInteractive(x, y);
     if (wireHit) {
+      selectedWire = wireHit.wire;
       if (wireHit.type === 'waypoint') {
         saveState();
         dragging = { type: 'wire-waypoint', wire: wireHit.wire, wpIndex: wireHit.wpIndex };
@@ -924,6 +956,7 @@ function handleCanvasMouseDown(e) {
     });
 
     updateStatus('Connected: ' + wireStart.name + ' → ' + pin.name);
+    showConnectionToast('Connected: ' + wireStart.name + ' → ' + pin.name);
     wireStart = null;
     draw();
   }

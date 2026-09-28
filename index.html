@@ -43,6 +43,10 @@
     <span>✕</span><span class="btn-label">Delete</span>
   </button>
 
+  <button class="btn" id="btn-reset-wire" onclick="resetSelectedWireRoute()" title="Reset selected wire route">
+    <span>↻</span><span class="btn-label">Reset Wire</span>
+  </button>
+
   <div class="toolbar-sep"></div>
 
   <button class="btn yellow" onclick="undo()" title="Undo (Ctrl+Z)">
@@ -131,6 +135,7 @@
 
         <div id="comp-tooltip"></div>
         <div id="zoom-badge">100%</div>
+        <div id="connection-toast" class="connection-toast hidden"></div>
 
         <div id="conn-alert" class="conn-alert hidden">
           <span id="conn-alert-text"></span>
@@ -499,7 +504,7 @@ function showWireTipOnce() {
   if (!toast) return;
   toast.classList.remove('hidden');
   toast.classList.add('visible');
-  setTimeout(dismissWireTip, 5000);
+  setTimeout(dismissWireTip, 3200);
 }
 
 function dismissWireTip() {

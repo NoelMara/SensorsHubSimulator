@@ -794,6 +794,20 @@ canvas {
 }
 .wire-tip-close:hover { color: var(--red); }
 
+.connection-toast {
+  position: absolute; top: 82px; left: 50%; z-index: 300;
+  transform: translateX(-50%) translateY(-6px);
+  max-width: min(440px, calc(100% - 24px));
+  padding: 8px 13px; border-radius: 10px;
+  border: 1px solid rgba(69,217,167,0.35);
+  background: rgba(7,28,25,0.94); color: #9ff2d2;
+  font-size: 10px; font-weight: 600; text-align: center;
+  box-shadow: var(--shadow-md); opacity: 0; pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.connection-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.connection-toast.hidden { display: none; }
+
 /* ============================================================
    COMPONENT TOOLTIP
    ============================================================ */
@@ -973,8 +987,9 @@ canvas {
     white-space: normal;
     left: 12px;
     right: 12px;
-    /* also sits above nav bar */
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
+    /* Keep it below the toolbar, away from the floating Build Kit. */
+    top: calc(var(--toolbar-h) + 12px);
+    bottom: auto;
     transform: translateX(0) translateY(8px);
     width: auto;
   }
@@ -1385,7 +1400,8 @@ canvas {
     white-space: normal;
     left: 12px;
     right: 12px;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 86px);
+    top: calc(var(--toolbar-h) + 12px);
+    bottom: auto;
     transform: translateX(0) translateY(8px);
     width: auto;
   }
@@ -1393,6 +1409,7 @@ canvas {
   .wire-tip-toast.visible {
     transform: translateX(0) translateY(0);
   }
+  .connection-toast { top: calc(var(--toolbar-h) + 12px); }
 }
 
 /* ============================================================
