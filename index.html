@@ -180,6 +180,11 @@
         </div>
 
         <div id="palette-body">
+          <div class="component-search-wrap">
+            <input id="component-search" class="component-search" type="search"
+                   placeholder="Search components..." autocomplete="off"
+                   oninput="filterComponents(this.value)">
+          </div>
           <div id="palette-cats">
             <div class="cat-tab active" data-cat="mcu"         onclick="switchCat('mcu')">🖥 Microcontrollers</div>
             <div class="cat-tab"        data-cat="lights"      onclick="switchCat('lights')">💡 Lights</div>
@@ -220,7 +225,8 @@
             <div class="comp-item" data-cat="peripherals" onclick="addComponent('ssd1306')" style="display:none"><span class="comp-icon">📟</span><span class="comp-name">OLED</span></div>
           </div>
         </div>
-      </div><!-- /palette-wrapper -->
+          <div id="component-search-empty" style="display:none;padding:10px 18px;color:var(--text-dim);font-size:10px;text-align:center">No components found</div>
+        </div><!-- /palette-wrapper -->
 
     </div><!-- /sim-panel -->
 
@@ -408,6 +414,20 @@ function toggleLang() {
    COMPONENT PALETTE CATEGORIES
    ============================================================ */
 var currentCat = 'mcu';
+function filterComponents(query) {
+  var term = String(query || '').trim().toLowerCase();
+  var items = document.querySelectorAll('.comp-item');
+  var visible = 0;
+  items.forEach(function(item) {
+    var name = (item.querySelector('.comp-name')?.textContent || '').toLowerCase();
+    var show = term ? name.indexOf(term) !== -1 : item.dataset.cat === currentCat;
+    item.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  var empty = document.getElementById('component-search-empty');
+  if (empty) empty.style.display = term && visible === 0 ? '' : 'none';
+}
+
 function switchCat(cat) {
   currentCat = cat;
   document.querySelectorAll('.cat-tab').forEach(function(t) {
@@ -422,6 +442,10 @@ function switchCat(cat) {
       item.style.animation = 'compFadeIn 0.22s ease both';
     }
   });
+  var search = document.getElementById('component-search');
+  if (search && search.value) search.value = '';
+  var empty = document.getElementById('component-search-empty');
+  if (empty) empty.style.display = 'none';
 }
 switchCat('mcu');
 

@@ -700,7 +700,7 @@ canvas {
 
 /* ── Category tabs ── */
 #palette-cats {
-  display: flex; gap: 6px; padding: 8px 14px 12px;
+  display: flex; gap: 6px; padding: 4px 14px 12px;
   overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
 }
 
@@ -805,6 +805,16 @@ canvas {
   box-shadow: var(--shadow-md); opacity: 0; pointer-events: none;
   transition: opacity .2s ease, transform .2s ease;
 }
+
+.component-search-wrap { padding: 10px 14px 8px; }
+.component-search {
+  width: 100%; box-sizing: border-box; min-height: 36px; padding: 9px 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(255,255,255,0.04); color: var(--text);
+  font: inherit; outline: none;
+}
+.component-search:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(94,184,255,0.12); }
+.component-search::placeholder { color: var(--text-dim); }
 .connection-toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 .connection-toast.hidden { display: none; }
 
