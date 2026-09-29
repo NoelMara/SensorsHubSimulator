@@ -497,7 +497,8 @@ html, body {
 .CodeMirror-cursor { border-left: 2px solid var(--mode-color) !important; transition: border-color 0.4s ease; }
 .CodeMirror-selected { background: var(--mode-color-dim) !important; }
 .CodeMirror-focused .CodeMirror-selected { background: rgba(var(--accent-rgb), 0.18) !important; }
-.CodeMirror .cm-error-line { background-color: rgba(255, 92, 92, 0.24) !important; }
+.CodeMirror .cm-error-line,
+.CodeMirror .CodeMirror-linebackground.cm-error-line { background-color: rgba(255, 92, 92, 0.28) !important; }
 
 /* Syntax tokens */
 .cm-keyword  { color: #f97583 !important; }
