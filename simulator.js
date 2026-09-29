@@ -1405,6 +1405,7 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
     const bodyLines = [];
     let depth = 0;
     let outsideBlockComment = false;
+    let outsideBlockComment = false;
 
     while (i < sourceLines.length) {
       const bl = String(sourceLines[i] || '').trim();
