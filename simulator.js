@@ -1404,6 +1404,7 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
 
     const bodyLines = [];
     let depth = 0;
+    let outsideBlockComment = false;
 
     while (i < sourceLines.length) {
       const bl = String(sourceLines[i] || '').trim();
@@ -2786,16 +2787,44 @@ function validateSourceCode(sourceCode, mode) {
     const allowedTopLevel = /^(#|\/\/|\/\*|\*\/|void\s+\w+\s*\(|(?:const\s+)?(?:int|float|long|double|bool|char|byte|String|unsigned)\b)/;
     for (let lineIndex = 0; lineIndex < sourceLines.length; lineIndex++) {
       const line = sourceLines[lineIndex];
-      const trimmed = line.trim();
-      if (!/^\/\//.test(trimmed) && /}\s*[A-Za-z_]/.test(trimmed) && !/}\s*else\b/.test(trimmed)) {
+      let codeLine = '';
+      let quote = null;
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        const next = line[j + 1];
+        if (outsideBlockComment) {
+          if (char === '*' && next === '/') {
+            outsideBlockComment = false;
+            j++;
+          }
+          continue;
+        }
+        if (quote) {
+          if (char === '\\') j++;
+          else if (char === quote) quote = null;
+          continue;
+        }
+        if (char === '/' && next === '*') {
+          outsideBlockComment = true;
+          j++;
+        } else if (char === '/' && next === '/') {
+          break;
+        } else if (char === '"' || char === "'") {
+          quote = char;
+        } else {
+          codeLine += char;
+        }
+      }
+      const trimmed = codeLine.trim();
+      if (/}\s*[A-Za-z_]/.test(trimmed) && !/}\s*else\b/.test(trimmed)) {
         return 'Code outside function (line ' + (lineIndex + 1) + ')';
       }
       if (depth === 0 && executableAtTopLevel.test(trimmed)) return 'Code outside function';
       if (depth === 0 && trimmed && !allowedTopLevel.test(trimmed) && !/^}/.test(trimmed)) {
         return 'Code outside function (line ' + (lineIndex + 1) + ')';
       }
-      depth += (line.match(/{/g) || []).length;
-      depth -= (line.match(/}/g) || []).length;
+      depth += (codeLine.match(/{/g) || []).length;
+      depth -= (codeLine.match(/}/g) || []).length;
     }
   }
 
