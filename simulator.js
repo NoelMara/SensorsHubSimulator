@@ -2810,6 +2810,12 @@ function validateSourceCode(sourceCode, mode) {
 }
 
 function getValidationDetail(source, validationError) {
+  if (validationError === 'Check setup brace' || validationError === 'Check loop brace') {
+    const name = validationError === 'Check setup brace' ? 'setup' : 'loop';
+    const match = new RegExp('\\bvoid\\s+' + name + '\\s*\\(').exec(String(source || ''));
+    const line = match ? String(source).slice(0, match.index).split('\n').length : '?';
+    return 'Add { after ' + name + '() on line ' + line + '.';
+  }
   if (validationError !== 'Brace error') return validationError;
 
   const issue = findBraceIssue(source);
