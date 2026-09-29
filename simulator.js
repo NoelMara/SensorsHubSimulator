@@ -2774,6 +2774,9 @@ function validateSourceCode(sourceCode, mode) {
   if (!hasSetup || !hasLoop) return 'Missing setup or loop';
 
   if (!isPython) {
+    if (!/\bvoid\s+setup\s*\([^)]*\)\s*\{/.test(source)) return 'Check setup brace';
+    if (!/\bvoid\s+loop\s*\([^)]*\)\s*\{/.test(source)) return 'Check loop brace';
+
     const withoutStrings = source
       .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '')
       .replace(/\/\/.*$/gm, '')
@@ -2823,7 +2826,9 @@ function runCode() {
     updateStatus(validationError);
     const details = {
       'Code is empty': 'Code is empty. Add setup() and loop() before running.',
-      'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.'
+      'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
+      'Check setup brace': 'Add { after setup().',
+      'Check loop brace': 'Add { after loop().'
     }[validationError] || validationError;
     serialWrite('Error: ' + (validationError === 'Check braces'
       ? getValidationDetail(sourceCode, validationError)
