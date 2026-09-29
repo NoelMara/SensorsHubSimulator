@@ -3622,6 +3622,12 @@ function sendSerial() {
   var val = inp.value.trim();
   if (!val) return;
 
+  if (/^\/clear$/i.test(val)) {
+    clearSerialOutput();
+    inp.value = '';
+    return;
+  }
+
   for (var i = 0; i < val.length; i++) serialRxBuffer.push(val[i]);
   serialRxBuffer.push('\n');
 
