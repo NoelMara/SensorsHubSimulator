@@ -2848,7 +2848,6 @@ function runCode() {
     : document.getElementById('code-textarea').value;
   const validationError = validateSourceCode(sourceCode, runtimeMode);
   if (validationError) {
-    updateStatus(validationError);
     const details = {
       'Code is empty': 'Code is empty. Add setup() and loop() before running.',
       'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
@@ -2858,11 +2857,19 @@ function runCode() {
       'Add if brace': 'Add { after the if condition.',
       'Code outside function': 'Move this code inside setup() or loop().'
     }[validationError] || validationError;
-    serialWrite('Error: ' + (validationError === 'Brace error'
+    const serialDetail = validationError === 'Brace error'
       ? getValidationDetail(sourceCode, validationError)
-      : details), true);
+      : details;
+    const lineMatch = serialDetail.match(/line (\d+)/i);
+  if (typeof showCodeError === 'function') {
+      showCodeError(lineMatch ? Number(lineMatch[1]) : null, details);
+    } else {
+      updateStatus(details);
+    }
+    serialWrite('Error: ' + serialDetail, true);
     return;
   }
+  if (typeof clearCodeError === 'function') clearCodeError();
 
   for (let i = 0; i < components.length; i++) {
     const comp = components[i];
