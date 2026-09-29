@@ -433,7 +433,7 @@ function loadProjectFile(file) {
       if (typeof draw === 'function') draw();
       updateStatus('Project loaded');
     } catch (error) {
-      updateStatus(error.message || 'Load failed');
+      updateStatus(error instanceof SyntaxError ? 'Invalid JSON' : (error.message || 'Load failed'));
       console.error(error);
     }
   };
