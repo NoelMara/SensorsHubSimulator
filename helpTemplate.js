@@ -168,7 +168,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#9000;</div>
           <div class="help-step-content">
             <div class="help-step-title">Serial monitor</div>
-            <div class="help-step-desc">Click <strong>&#9000; Serial</strong> in the toolbar. Output from <code>Serial.println()</code> in Arduino or <code>print()</code> in MicroPython appears here. You can also type text into the input box and press <strong>SEND</strong> to feed data into the running sketch. Arduino serial input supports common beginner patterns such as <code>char c = Serial.read()</code>, <code>c == 'A'</code>, <code>(char)Serial.read()</code>, and building text with <code>String +=</code>.</div>
+            <div class="help-step-desc">Click <strong>&#9000; Serial</strong> in the toolbar. Output from <code>Serial.println()</code> in Arduino or <code>print()</code> in MicroPython appears here. Type text and press <strong>SEND</strong> to feed input to a running sketch; use <code>Serial.readStringUntil('\\n')</code> to read a line. Type <code>/clear</code> and press <strong>SEND</strong> to clear the monitor. Sent text is marked with <code>&lt;</code>; sketch output is marked with <code>&gt;</code>.</div>
           </div>
         </div>
 
@@ -276,7 +276,7 @@ window.HELP_MODAL_HTML = `
           </div>
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128223;</span><strong>OLED Display (SSD1306)</strong></div>
-            <span>Shows text or simple graphics. Connect <code>VCC</code>, <code>GND</code>, <code>SCL</code>, and <code>SDA</code>. In Arduino mode, use <code>Wire</code> and <code>Adafruit_SSD1306</code>. On ESP32, the common wiring is <code>SCL</code> to <code>D22</code> and <code>SDA</code> to <code>D21</code>. The screen updates while your sketch runs.</span>
+            <span>Shows text or simple graphics. Connect <code>VCC</code>, <code>GND</code>, <code>SCL</code>, and <code>SDA</code>. In Arduino mode, use <code>Wire</code> and <code>Adafruit_SSD1306</code>; in MicroPython, use <code>ssd1306.SSD1306_I2C</code>. On ESP32, the common wiring is <code>SCL</code> to <code>D22</code> and <code>SDA</code> to <code>D21</code>. The screen updates while your sketch runs.</span>
           </div>
         </div>
 
@@ -354,7 +354,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">5</div>
           <div class="help-step-content">
             <div class="help-step-title">Keep MicroPython code simple</div>
-            <div class="help-step-desc">For the best results, write simple MicroPython using one main <code>while True:</code> loop, one statement per line, and basic <code>if / elif / else</code> logic. Basic <code>try/except</code> is supported for simulator/runtime errors, including inside simple <code>if</code> blocks. Avoid advanced features such as classes and complex helper functions unless you have tested them in this simulator.</div>
+            <div class="help-step-desc">You can write MicroPython directly at the top level; <code>setup()</code> and <code>loop()</code> functions are optional. Use one main <code>while True:</code> loop, one statement per line, and basic <code>if / elif / else</code> logic. Basic <code>try/except</code> is supported for simulator/runtime errors, including inside simple <code>if</code> blocks. Avoid advanced features such as classes and complex helper functions unless you have tested them in this simulator.</div>
           </div>
         </div>
 
