@@ -2865,7 +2865,7 @@ function runCode() {
   const validationError = validateSourceCode(sourceCode, runtimeMode);
   if (validationError) {
     const details = {
-      'Code is empty': 'Code is empty. Add setup() and loop() before running.',
+      'Code is empty': 'Add setup() and loop().',
       'Missing setup and loop': 'Add setup() and loop().',
       'Missing setup': 'Add setup().',
       'Missing loop': 'Add loop().',
