@@ -364,6 +364,17 @@ function saveProjectFile() {
     wires: JSON.parse(JSON.stringify(wires))
   };
   var blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+  var jsonText = JSON.stringify(project, null, 2);
+
+  // Flutter's WebView cannot download Blob URLs by itself. Pass the file to
+  // the native app when its JavaScript bridge is available.
+  if (window.DownloadChannel && window.DownloadChannel.postMessage) {
+    var encoded = btoa(unescape(encodeURIComponent(jsonText)));
+    window.DownloadChannel.postMessage(encoded);
+    updateStatus('Project ready to save');
+    return;
+  }
+
   var url = URL.createObjectURL(blob);
   var link = document.createElement('a');
   link.href = url;
