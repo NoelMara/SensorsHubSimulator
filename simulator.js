@@ -1885,6 +1885,25 @@ function readSerialParseInt() {
   return parseInt(sign + digits, 10);
 }
 
+function readSerialUntil(delimiter) {
+  delimiter = String(delimiter || '\n');
+  if (delimiter === '\\n') delimiter = '\n';
+  else if (delimiter === '\\r') delimiter = '\r';
+  else if (delimiter === '\\t') delimiter = '\t';
+
+  var input = serialRxBuffer.join('');
+  var delimiterIndex = input.indexOf(delimiter);
+  var result;
+  if (delimiterIndex >= 0) {
+    result = input.slice(0, delimiterIndex);
+    serialRxBuffer.splice(0, delimiterIndex + delimiter.length);
+  } else {
+    result = input;
+    serialRxBuffer.length = 0;
+  }
+  return result;
+}
+
 function resolveLibraryArgValue(arg) {
   if (typeof arg !== 'string') return arg;
 
@@ -3306,6 +3325,14 @@ function executeLineWithDelay(line, phase) {
 
   if (/^Serial\.begin\s*\(/.test(l)) {
     serialWrite('Serial started', true);
+    return true;
+  }
+
+  const readUntilM = l.match(/^(?:(?:String\s+)?(\w+)\s*=\s*)?Serial\.readStringUntil\s*\(\s*(['"])(.*?)\2\s*\)$/i);
+  if (readUntilM) {
+    const delimiter = readUntilM[3];
+    const value = readSerialUntil(delimiter);
+    if (readUntilM[1]) variables[readUntilM[1]] = value;
     return true;
   }
 
