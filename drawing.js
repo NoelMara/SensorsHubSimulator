@@ -3282,9 +3282,12 @@ function drawBuzzer(c) {
 // OLED DISPLAY
 // ==========================================
 function drawSSD1306(c) {
+  // Expand older saved OLED components too, so their rendered text remains legible.
+  c.width = Math.max(c.width || 120, 180);
+  c.height = Math.max(c.height || 80, 120);
   var x = c.x, y = c.y;
-  var w = c.width || 120;
-  var h = c.height || 80;
+  var w = c.width;
+  var h = c.height;
   var wired = typeof isComponentWired === 'function' ? isComponentWired(c) : true;
 
   ctx.fillStyle = '#1a1a2e';
@@ -3293,8 +3296,8 @@ function drawSSD1306(c) {
   ctx.lineWidth = 2;
   ctx.strokeRect(x - w / 2, y - h / 2, w, h);
 
-  var sw = Math.round(w * 0.8);
-  var sh = Math.round(h * 0.64);
+  var sw = Math.round(w * 0.84);
+  var sh = Math.round(sw / 2);
   var sx = x - sw / 2;
   var sy = y - sh / 2 - 2;
 
@@ -3345,7 +3348,7 @@ function drawSSD1306(c) {
 
   var pinLabels = ['GND', 'VCC', 'SCL', 'SDA'];
   c.pins.forEach(function(p, i) {
-    p.x = x - 52 + i * 35;
+    p.x = x - w * 0.38 + i * w * 0.25;
     p.y = y - h / 2;
 
     ctx.strokeStyle = p.color;

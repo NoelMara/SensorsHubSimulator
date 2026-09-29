@@ -866,8 +866,8 @@ function createSSD1306(x, y) {
     type: 'ssd1306',
     x: x,
     y: y,
-    width: 120,
-    height: 80,
+    width: 180,
+    height: 120,
     pins: [],
     state: {
       display: Array.from({ length: 8 }, function() {
@@ -878,10 +878,10 @@ function createSSD1306(x, y) {
     }
   };
 
-  c.pins.push({ name: 'GND', x: x - 52, y: y - 40, side: 'top', type: 'gnd', color: '#8b7355' });
-  c.pins.push({ name: 'VCC', x: x - 12, y: y - 40, side: 'top', type: 'power', color: '#ff5566' });
-  c.pins.push({ name: 'SCL', x: x + 12, y: y - 40, side: 'top', type: 'i2c', color: '#ffcc44' });
-  c.pins.push({ name: 'SDA', x: x + 36, y: y - 40, side: 'top', type: 'i2c', color: '#3ddc84' });
+  c.pins.push({ name: 'GND', x: x - 68, y: y - 60, side: 'top', type: 'gnd', color: '#8b7355' });
+  c.pins.push({ name: 'VCC', x: x - 23, y: y - 60, side: 'top', type: 'power', color: '#ff5566' });
+  c.pins.push({ name: 'SCL', x: x + 22, y: y - 60, side: 'top', type: 'i2c', color: '#ffcc44' });
+  c.pins.push({ name: 'SDA', x: x + 67, y: y - 60, side: 'top', type: 'i2c', color: '#3ddc84' });
 
   return c;
 }
