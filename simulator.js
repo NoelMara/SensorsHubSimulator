@@ -2813,11 +2813,36 @@ function getValidationDetail(source, validationError) {
 function findBraceIssue(source) {
   const stack = [];
   const lines = String(source || '').split('\n');
+  let inBlockComment = false;
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-      .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '')
-      .replace(/\/\/.*$/, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '');
+    let line = '';
+    let quote = null;
+    for (let j = 0; j < lines[i].length; j++) {
+      const char = lines[i][j];
+      const next = lines[i][j + 1];
+      if (inBlockComment) {
+        if (char === '*' && next === '/') {
+          inBlockComment = false;
+          j++;
+        }
+        continue;
+      }
+      if (quote) {
+        if (char === '\\') j++;
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (char === '/' && next === '*') {
+        inBlockComment = true;
+        j++;
+      } else if (char === '/' && next === '/') {
+        break;
+      } else if (char === '"' || char === "'") {
+        quote = char;
+      } else {
+        line += char;
+      }
+    }
     for (const char of line) {
       if (char === '{') {
         const beforeBrace = line.slice(0, line.indexOf('{'));
