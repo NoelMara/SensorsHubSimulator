@@ -1404,8 +1404,6 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
 
     const bodyLines = [];
     let depth = 0;
-    let outsideBlockComment = false;
-    let outsideBlockComment = false;
 
     while (i < sourceLines.length) {
       const bl = String(sourceLines[i] || '').trim();
@@ -2784,6 +2782,7 @@ function validateSourceCode(sourceCode, mode) {
     if (braceIssue) return 'Brace error';
 
     let depth = 0;
+    let outsideBlockComment = false;
     const executableAtTopLevel = /^(Serial\.|digitalWrite\s*\(|digitalRead\s*\(|analogWrite\s*\(|delay\s*\(|pinMode\s*\()/;
     const allowedTopLevel = /^(#|\/\/|\/\*|\*\/|void\s+\w+\s*\(|(?:const\s+)?(?:int|float|long|double|bool|char|byte|String|unsigned)\b)/;
     for (let lineIndex = 0; lineIndex < sourceLines.length; lineIndex++) {
