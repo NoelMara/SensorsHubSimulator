@@ -2777,6 +2777,17 @@ function validateSourceCode(sourceCode, mode) {
     if (!/\bvoid\s+setup\s*\([^)]*\)\s*\{/.test(source)) return 'Check setup brace';
     if (!/\bvoid\s+loop\s*\([^)]*\)\s*\{/.test(source)) return 'Check loop brace';
 
+    const sourceLines = source.split('\n');
+    for (let i = 0; i < sourceLines.length; i++) {
+      if (!/^\s*if\s*\([^)]*\)\s*$/.test(sourceLines[i])) continue;
+      let next = i + 1;
+      while (next < sourceLines.length && !sourceLines[next].trim()) next++;
+      if (next < sourceLines.length && sourceLines[next].trim() !== '{' &&
+          sourceLines.slice(next).some(line => /^\s*}\s*else\b/.test(line))) {
+        return 'Add if brace';
+      }
+    }
+
     const setupStart = source.search(/\bvoid\s+setup\s*\([^)]*\)\s*\{/);
     const loopStart = source.search(/\bvoid\s+loop\s*\([^)]*\)\s*\{/);
     const setupBody = source.slice(source.indexOf('{', setupStart), loopStart);
@@ -2836,7 +2847,8 @@ function runCode() {
       'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
       'Check setup brace': 'Add { after setup().',
       'Check loop brace': 'Add { after loop().',
-      'Close setup first': 'Close setup() with } before loop().'
+      'Close setup first': 'Close setup() with } before loop().',
+      'Add if brace': 'Add { after the if condition.'
     }[validationError] || validationError;
     serialWrite('Error: ' + (validationError === 'Check braces'
       ? getValidationDetail(sourceCode, validationError)
