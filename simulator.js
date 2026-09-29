@@ -2771,7 +2771,9 @@ function validateSourceCode(sourceCode, mode) {
   const hasLoop = isPython ? /\bdef\s+loop\s*\(/.test(source) : /\bvoid\s+loop\s*\(/.test(source);
 
   if (!source.trim()) return 'Code is empty';
-  if (!hasSetup || !hasLoop) return 'Missing setup or loop';
+  if (!hasSetup && !hasLoop) return 'Missing setup and loop';
+  if (!hasSetup) return 'Missing setup';
+  if (!hasLoop) return 'Missing loop';
 
   if (!isPython) {
     if (!/\bvoid\s+setup\s*\([^)]*\)\s*\{/.test(source)) return 'Check setup brace';
@@ -2864,7 +2866,9 @@ function runCode() {
   if (validationError) {
     const details = {
       'Code is empty': 'Code is empty. Add setup() and loop() before running.',
-      'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
+      'Missing setup and loop': 'Add setup() and loop().',
+      'Missing setup': 'Add setup().',
+      'Missing loop': 'Add loop().',
       'Check setup brace': 'Add { after setup().',
       'Check loop brace': 'Add { after loop().',
       'Close setup first': 'Add } before loop().',
