@@ -2828,7 +2828,7 @@ function getValidationDetail(source, validationError) {
 
   const issue = findBraceIssue(source);
   if (issue.type === 'extra') return 'Extra } on line ' + issue.line + '.';
-  return 'Missing } for { on line ' + issue.line + '.';
+  return 'Add } for { on line ' + issue.line + '.';
 }
 
 function findBraceIssue(source) {
