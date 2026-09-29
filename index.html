@@ -445,11 +445,15 @@ function loadProjectFile(file) {
 }
 
 function showCodeError(line, message) {
-  if (_errorLine !== null && editor) editor.removeLineClass(_errorLine, 'background', 'cm-error-line');
+  if (_errorLine !== null && editor) {
+    editor.removeLineClass(_errorLine, 'wrap', 'cm-error-line');
+    editor.removeLineClass(_errorLine, 'text', 'cm-error-text');
+  }
   _errorLine = null;
   if (editor && Number.isInteger(line) && line > 0 && line <= editor.lineCount()) {
     _errorLine = line - 1;
-    editor.addLineClass(_errorLine, 'background', 'cm-error-line');
+    editor.addLineClass(_errorLine, 'wrap', 'cm-error-line');
+    editor.addLineClass(_errorLine, 'text', 'cm-error-text');
     editor.scrollIntoView({ line: _errorLine, ch: 0 }, 80);
     updateStatus('Syntax error line ' + line);
   } else {
@@ -458,7 +462,10 @@ function showCodeError(line, message) {
 }
 
 function clearCodeError() {
-  if (_errorLine !== null && editor) editor.removeLineClass(_errorLine, 'background', 'cm-error-line');
+  if (_errorLine !== null && editor) {
+    editor.removeLineClass(_errorLine, 'wrap', 'cm-error-line');
+    editor.removeLineClass(_errorLine, 'text', 'cm-error-text');
+  }
   _errorLine = null;
 }
 
