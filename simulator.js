@@ -2802,6 +2802,12 @@ function runCode() {
   const validationError = validateSourceCode(sourceCode, runtimeMode);
   if (validationError) {
     updateStatus(validationError);
+    const details = {
+      'Code is empty': 'Code is empty. Add setup() and loop() before running.',
+      'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
+      'Check braces': 'Braces do not match. Check every { has a closing }.'
+    }[validationError] || validationError;
+    serialWrite('Error: ' + details, true);
     return;
   }
 
