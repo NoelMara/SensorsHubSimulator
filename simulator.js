@@ -2769,8 +2769,10 @@ function validateSourceCode(sourceCode, mode) {
   const isPython = mode === 'py';
   const hasSetup = isPython ? /\bdef\s+setup\s*\(/.test(source) : /\bvoid\s+setup\s*\(/.test(source);
   const hasLoop = isPython ? /\bdef\s+loop\s*\(/.test(source) : /\bvoid\s+loop\s*\(/.test(source);
+  const hasPythonMainLoop = isPython && /^\s*while\s+True\s*:/m.test(source);
 
   if (!source.trim()) return 'Code is empty';
+  if (isPython && hasPythonMainLoop) return '';
   if (!hasSetup && !hasLoop) return 'Missing setup and loop';
   if (!hasSetup) return 'Missing setup';
   if (!hasLoop) return 'Missing loop';
