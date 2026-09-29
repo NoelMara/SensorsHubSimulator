@@ -2794,39 +2794,37 @@ function validateSourceCode(sourceCode, mode) {
     const setupBraceCount = (setupBody.match(/{/g) || []).length - (setupBody.match(/}/g) || []).length;
     if (setupBraceCount !== 0) return 'Close setup first';
 
-    const withoutStrings = source
-      .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '')
-      .replace(/\/\/.*$/gm, '')
-      .replace(/\/\*[\s\S]*?\*\//g, '');
-    let braces = 0;
-    for (const char of withoutStrings) {
-      if (char === '{') braces++;
-      if (char === '}') braces--;
-      if (braces < 0) return 'Check braces';
-    }
-    if (braces !== 0) return 'Check braces';
+    if (findBraceIssue(source)) return 'Brace error';
   }
 
   return '';
 }
 
 function getValidationDetail(source, validationError) {
-  if (validationError !== 'Check braces') return validationError;
+  if (validationError !== 'Brace error') return validationError;
 
+  const issue = findBraceIssue(source);
+  if (issue.type === 'extra') return 'Extra } on line ' + issue.line + '.';
+  return 'Missing } for { on line ' + issue.line + '.';
+}
+
+function findBraceIssue(source) {
+  const stack = [];
   const lines = String(source || '').split('\n');
-  let braces = 0;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
       .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '')
       .replace(/\/\/.*$/, '')
       .replace(/\/\*[\s\S]*?\*\//g, '');
     for (const char of line) {
-      if (char === '{') braces++;
-      if (char === '}') braces--;
-      if (braces < 0) return 'Check line ' + (i + 1) + ': extra }.';
+      if (char === '{') stack.push(i + 1);
+      if (char === '}') {
+        if (!stack.length) return { type: 'extra', line: i + 1 };
+        stack.pop();
+      }
     }
   }
-  return 'Check line ' + lines.length + ': missing }.';
+  return stack.length ? { type: 'missing', line: stack[stack.length - 1] } : null;
 }
 
 function runCode() {
@@ -2850,7 +2848,7 @@ function runCode() {
       'Close setup first': 'Close setup() with } before loop().',
       'Add if brace': 'Add { after the if condition.'
     }[validationError] || validationError;
-    serialWrite('Error: ' + (validationError === 'Check braces'
+    serialWrite('Error: ' + (validationError === 'Brace error'
       ? getValidationDetail(sourceCode, validationError)
       : details), true);
     return;
