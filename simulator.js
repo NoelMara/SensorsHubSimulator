@@ -2795,6 +2795,15 @@ function validateSourceCode(sourceCode, mode) {
     if (setupBraceCount !== 0) return 'Close setup first';
 
     if (findBraceIssue(source)) return 'Brace error';
+
+    let depth = 0;
+    const executableAtTopLevel = /^(Serial\.|digitalWrite\s*\(|digitalRead\s*\(|analogWrite\s*\(|delay\s*\(|pinMode\s*\()/;
+    for (const line of sourceLines) {
+      const trimmed = line.trim();
+      if (depth === 0 && executableAtTopLevel.test(trimmed)) return 'Code outside function';
+      depth += (line.match(/{/g) || []).length;
+      depth -= (line.match(/}/g) || []).length;
+    }
   }
 
   return '';
@@ -2846,7 +2855,8 @@ function runCode() {
       'Check setup brace': 'Add { after setup().',
       'Check loop brace': 'Add { after loop().',
       'Close setup first': 'Close setup() with } before loop().',
-      'Add if brace': 'Add { after the if condition.'
+      'Add if brace': 'Add { after the if condition.',
+      'Code outside function': 'Move this code inside setup() or loop().'
     }[validationError] || validationError;
     serialWrite('Error: ' + (validationError === 'Brace error'
       ? getValidationDetail(sourceCode, validationError)
