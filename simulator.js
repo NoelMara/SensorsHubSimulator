@@ -2830,7 +2830,7 @@ function getValidationDetail(source, validationError) {
 
   const issue = findBraceIssue(source);
   if (issue.type === 'extra') return 'Extra } on line ' + issue.line + '.';
-  return 'Add } for { on line ' + issue.line + '.';
+  return 'Add } to close ' + issue.label + ' from line ' + issue.line + '.';
 }
 
 function findBraceIssue(source) {
@@ -2842,14 +2842,24 @@ function findBraceIssue(source) {
       .replace(/\/\/.*$/, '')
       .replace(/\/\*[\s\S]*?\*\//g, '');
     for (const char of line) {
-      if (char === '{') stack.push(i + 1);
+      if (char === '{') {
+        const beforeBrace = line.slice(0, line.indexOf('{'));
+        let label = 'block';
+        if (/\belse\b/.test(beforeBrace)) label = 'else block';
+        else if (/\bif\s*\(/.test(beforeBrace)) label = 'if block';
+        else if (/\bfor\s*\(/.test(beforeBrace)) label = 'for loop';
+        else if (/\bwhile\s*\(/.test(beforeBrace)) label = 'while loop';
+        else if (/\bvoid\s+setup\s*\(/.test(beforeBrace)) label = 'setup()';
+        else if (/\bvoid\s+loop\s*\(/.test(beforeBrace)) label = 'loop()';
+        stack.push({ line: i + 1, label: label });
+      }
       if (char === '}') {
         if (!stack.length) return { type: 'extra', line: i + 1 };
         stack.pop();
       }
     }
   }
-  return stack.length ? { type: 'missing', line: stack[stack.length - 1] } : null;
+  return stack.length ? { type: 'missing', line: stack[stack.length - 1].line, label: stack[stack.length - 1].label } : null;
 }
 
 function runCode() {
