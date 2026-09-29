@@ -2764,11 +2764,46 @@ function validateMCULanguagePair() {
 // RUN CODE
 // ==========================================
 
+function validateSourceCode(sourceCode, mode) {
+  const source = String(sourceCode || '');
+  const isPython = mode === 'py';
+  const hasSetup = isPython ? /\bdef\s+setup\s*\(/.test(source) : /\bvoid\s+setup\s*\(/.test(source);
+  const hasLoop = isPython ? /\bdef\s+loop\s*\(/.test(source) : /\bvoid\s+loop\s*\(/.test(source);
+
+  if (!source.trim()) return 'Code is empty';
+  if (!hasSetup || !hasLoop) return 'Missing setup or loop';
+
+  if (!isPython) {
+    const withoutStrings = source
+      .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '')
+      .replace(/\/\/.*$/gm, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    let braces = 0;
+    for (const char of withoutStrings) {
+      if (char === '{') braces++;
+      if (char === '}') braces--;
+      if (braces < 0) return 'Check braces';
+    }
+    if (braces !== 0) return 'Check braces';
+  }
+
+  return '';
+}
+
 function runCode() {
   if (running) stopCode();
 
   if (!validateMCULanguagePair()) return;
   runtimeMode = window.fileMode || 'ino';
+
+  const sourceCode = typeof getCode === 'function'
+    ? getCode()
+    : document.getElementById('code-textarea').value;
+  const validationError = validateSourceCode(sourceCode, runtimeMode);
+  if (validationError) {
+    updateStatus(validationError);
+    return;
+  }
 
   for (let i = 0; i < components.length; i++) {
     const comp = components[i];
@@ -2786,10 +2821,6 @@ function runCode() {
   resetMicroPythonRuntime();
 
   updateStatus('Running...');
-
-  const sourceCode = typeof getCode === 'function'
-    ? getCode()
-    : document.getElementById('code-textarea').value;
 
   const code = window.fileMode === 'py'
     ? convertPyToSim(sourceCode)
