@@ -2020,6 +2020,14 @@ function applySimpleCastExpression(expr) {
 function resolveSimulatorRuntimeCalls(expr) {
   var out = String(expr || '');
 
+  out = out.replace(/\bdigitalRead\s*\(\s*([^()]+?)\s*\)/gi, function(_, pinRef) {
+    return String(readDigitalPinValue(resolvePin(pinRef.trim())));
+  });
+
+  out = out.replace(/\banalogRead\s*\(\s*([^()]+?)\s*\)/gi, function(_, pinRef) {
+    return String(readAnalogPinValue(resolvePin(pinRef.trim()), 4095));
+  });
+
   out = out.replace(/\bSerial\.parseInt\s*\(\s*\)/gi, function() {
     return String(readSerialParseInt());
   });
