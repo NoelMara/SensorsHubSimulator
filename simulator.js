@@ -2777,6 +2777,12 @@ function validateSourceCode(sourceCode, mode) {
     if (!/\bvoid\s+setup\s*\([^)]*\)\s*\{/.test(source)) return 'Check setup brace';
     if (!/\bvoid\s+loop\s*\([^)]*\)\s*\{/.test(source)) return 'Check loop brace';
 
+    const setupStart = source.search(/\bvoid\s+setup\s*\([^)]*\)\s*\{/);
+    const loopStart = source.search(/\bvoid\s+loop\s*\([^)]*\)\s*\{/);
+    const setupBody = source.slice(source.indexOf('{', setupStart), loopStart);
+    const setupBraceCount = (setupBody.match(/{/g) || []).length - (setupBody.match(/}/g) || []).length;
+    if (setupBraceCount !== 0) return 'Close setup first';
+
     const withoutStrings = source
       .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '')
       .replace(/\/\/.*$/gm, '')
@@ -2814,6 +2820,7 @@ function getValidationDetail(source, validationError) {
 
 function runCode() {
   if (running) stopCode();
+  clearSerialOutput();
 
   if (!validateMCULanguagePair()) return;
   runtimeMode = window.fileMode || 'ino';
@@ -2828,7 +2835,8 @@ function runCode() {
       'Code is empty': 'Code is empty. Add setup() and loop() before running.',
       'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
       'Check setup brace': 'Add { after setup().',
-      'Check loop brace': 'Add { after loop().'
+      'Check loop brace': 'Add { after loop().',
+      'Close setup first': 'Close setup() with } before loop().'
     }[validationError] || validationError;
     serialWrite('Error: ' + (validationError === 'Check braces'
       ? getValidationDetail(sourceCode, validationError)
@@ -3508,6 +3516,12 @@ function addSerialMessage(msg, newLine) {
   } else {
     serialLineBuffer += msg;
   }
+}
+
+function clearSerialOutput() {
+  var out = document.getElementById('serial-output');
+  if (out) out.innerHTML = '';
+  serialLineBuffer = '';
 }
 
 function sendSerial() {
