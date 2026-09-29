@@ -2798,9 +2798,14 @@ function validateSourceCode(sourceCode, mode) {
 
     let depth = 0;
     const executableAtTopLevel = /^(Serial\.|digitalWrite\s*\(|digitalRead\s*\(|analogWrite\s*\(|delay\s*\(|pinMode\s*\()/;
-    for (const line of sourceLines) {
+    const allowedTopLevel = /^(#|\/\/|\/\*|\*\/|void\s+\w+\s*\(|(?:const\s+)?(?:int|float|long|double|bool|char|byte|String|unsigned)\b)/;
+    for (let lineIndex = 0; lineIndex < sourceLines.length; lineIndex++) {
+      const line = sourceLines[lineIndex];
       const trimmed = line.trim();
       if (depth === 0 && executableAtTopLevel.test(trimmed)) return 'Code outside function';
+      if (depth === 0 && trimmed && !allowedTopLevel.test(trimmed) && !/^}/.test(trimmed)) {
+        return 'Code outside function (line ' + (lineIndex + 1) + ')';
+      }
       depth += (line.match(/{/g) || []).length;
       depth -= (line.match(/}/g) || []).length;
     }
