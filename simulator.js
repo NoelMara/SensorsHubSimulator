@@ -2867,7 +2867,7 @@ function runCode() {
       'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
       'Check setup brace': 'Add { after setup().',
       'Check loop brace': 'Add { after loop().',
-      'Close setup first': 'Close setup() with } before loop().',
+      'Close setup first': 'Close setup first.',
       'Add if brace': 'Add { after the if condition.',
       'Code outside function': 'Move this code inside setup() or loop().'
     }[validationError] || validationError;
