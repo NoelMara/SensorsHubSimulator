@@ -2787,7 +2787,7 @@ function validateSourceCode(sourceCode, mode) {
     for (let lineIndex = 0; lineIndex < sourceLines.length; lineIndex++) {
       const line = sourceLines[lineIndex];
       const trimmed = line.trim();
-      if (/}\s*[A-Za-z_]/.test(trimmed) && !/}\s*else\b/.test(trimmed)) {
+      if (!/^\/\//.test(trimmed) && /}\s*[A-Za-z_]/.test(trimmed) && !/}\s*else\b/.test(trimmed)) {
         return 'Code outside function (line ' + (lineIndex + 1) + ')';
       }
       if (depth === 0 && executableAtTopLevel.test(trimmed)) return 'Code outside function';
