@@ -2790,6 +2790,25 @@ function validateSourceCode(sourceCode, mode) {
   return '';
 }
 
+function getValidationDetail(source, validationError) {
+  if (validationError !== 'Check braces') return validationError;
+
+  const lines = String(source || '').split('\n');
+  let braces = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+      .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '')
+      .replace(/\/\/.*$/, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const char of line) {
+      if (char === '{') braces++;
+      if (char === '}') braces--;
+      if (braces < 0) return 'Check line ' + (i + 1) + ': extra }.';
+    }
+  }
+  return 'Check line ' + lines.length + ': missing }.';
+}
+
 function runCode() {
   if (running) stopCode();
 
@@ -2804,10 +2823,11 @@ function runCode() {
     updateStatus(validationError);
     const details = {
       'Code is empty': 'Code is empty. Add setup() and loop() before running.',
-      'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.',
-      'Check braces': 'Braces do not match. Check every { has a closing }.'
+      'Missing setup or loop': 'Missing setup() or loop(). Both functions are required.'
     }[validationError] || validationError;
-    serialWrite('Error: ' + details, true);
+    serialWrite('Error: ' + (validationError === 'Check braces'
+      ? getValidationDetail(sourceCode, validationError)
+      : details), true);
     return;
   }
 
