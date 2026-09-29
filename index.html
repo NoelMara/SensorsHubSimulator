@@ -412,8 +412,14 @@ function loadProjectFile(file) {
   reader.onload = function(event) {
     try {
       var project = JSON.parse(event.target.result);
-      if (!project || !Array.isArray(project.components) || !Array.isArray(project.wires)) {
-        throw new Error('Invalid project file');
+      if (!project || project.format !== 'SensorsHub Simulator Project') {
+        throw new Error('This is not a SensorsHub project file');
+      }
+      if (project.version !== 1 || !Array.isArray(project.components) || !Array.isArray(project.wires)) {
+        throw new Error('Unsupported or incomplete project format');
+      }
+      if (project.code && (typeof project.code.ino !== 'string' || typeof project.code.py !== 'string')) {
+        throw new Error('Project code data is invalid');
       }
       saveState();
       _savedContent[window.fileMode] = getCode();
@@ -427,9 +433,12 @@ function loadProjectFile(file) {
       if (typeof draw === 'function') draw();
       updateStatus('Project loaded');
     } catch (error) {
-      updateStatus('Could not load project file');
+      updateStatus(error.message || 'Could not load project file');
       console.error(error);
     }
+  };
+  reader.onerror = function() {
+    updateStatus('Could not read project file');
   };
   reader.readAsText(file);
 }
