@@ -300,7 +300,6 @@ while True:
    GLOBALS
    ============================================================ */
 var editor = null;
-var _errorLine = null;
 window.fileMode = 'ino';
 var _savedContent = { ino: '', py: '' };
 var _connAlertTimer = null;
@@ -445,16 +444,10 @@ function loadProjectFile(file) {
 }
 
 function showCodeError(line, message) {
-  if (_errorLine !== null && editor) {
-    editor.removeLineClass(_errorLine, 'background', 'cm-error-line');
-    editor.removeLineClass(_errorLine, 'wrap', 'cm-error-line');
-  }
-  _errorLine = null;
   if (editor && Number.isInteger(line) && line > 0 && line <= editor.lineCount()) {
-    _errorLine = line - 1;
-    editor.addLineClass(_errorLine, 'background', 'cm-error-line');
-    editor.addLineClass(_errorLine, 'wrap', 'cm-error-line');
-    editor.scrollIntoView({ line: _errorLine, ch: 0 }, 80);
+    editor.setCursor({ line: line - 1, ch: 0 });
+    editor.scrollIntoView({ line: line - 1, ch: 0 }, 80);
+    editor.focus();
     updateStatus('Syntax error line ' + line);
   } else {
     updateStatus(message || 'Syntax error');
@@ -462,11 +455,6 @@ function showCodeError(line, message) {
 }
 
 function clearCodeError() {
-  if (_errorLine !== null && editor) {
-    editor.removeLineClass(_errorLine, 'background', 'cm-error-line');
-    editor.removeLineClass(_errorLine, 'wrap', 'cm-error-line');
-  }
-  _errorLine = null;
 }
 
 function clearCodeEditor() {
