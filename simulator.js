@@ -2776,31 +2776,9 @@ function validateSourceCode(sourceCode, mode) {
   if (!hasLoop) return 'Missing loop';
 
   if (!isPython) {
-    // Check all braces first so an extra or missing brace cannot fall through
-    // to a less precise setup/if rule.
     const braceIssue = findBraceIssue(source);
     if (braceIssue && braceIssue.type === 'extra') return 'Brace error';
-
-    if (!/\bvoid\s+setup\s*\([^)]*\)\s*\{/.test(source)) return 'Check setup brace';
-    if (!/\bvoid\s+loop\s*\([^)]*\)\s*\{/.test(source)) return 'Check loop brace';
-
     const sourceLines = source.split('\n');
-    for (let i = 0; i < sourceLines.length; i++) {
-      if (!/^\s*if\s*\([^)]*\)\s*$/.test(sourceLines[i])) continue;
-      let next = i + 1;
-      while (next < sourceLines.length && !sourceLines[next].trim()) next++;
-      if (next < sourceLines.length && sourceLines[next].trim() !== '{' &&
-          sourceLines.slice(next).some(line => /^\s*}\s*else\b/.test(line))) {
-        return 'Add if brace';
-      }
-    }
-
-    const setupStart = source.search(/\bvoid\s+setup\s*\([^)]*\)\s*\{/);
-    const loopStart = source.search(/\bvoid\s+loop\s*\([^)]*\)\s*\{/);
-    const setupBody = source.slice(source.indexOf('{', setupStart), loopStart);
-    const setupBraceCount = (setupBody.match(/{/g) || []).length - (setupBody.match(/}/g) || []).length;
-    if (setupBraceCount !== 0) return 'Close setup first';
-
     if (braceIssue) return 'Brace error';
 
     let depth = 0;
@@ -2825,12 +2803,6 @@ function validateSourceCode(sourceCode, mode) {
 }
 
 function getValidationDetail(source, validationError) {
-  if (validationError === 'Check setup brace' || validationError === 'Check loop brace') {
-    const name = validationError === 'Check setup brace' ? 'setup' : 'loop';
-    const match = new RegExp('\\bvoid\\s+' + name + '\\s*\\(').exec(String(source || ''));
-    const line = match ? String(source).slice(0, match.index).split('\n').length : '?';
-    return 'Add { after ' + name + '() on line ' + line + '.';
-  }
   if (validationError !== 'Brace error') return validationError;
 
   const issue = findBraceIssue(source);
@@ -2884,10 +2856,6 @@ function runCode() {
       'Missing setup and loop': 'Add setup() and loop().',
       'Missing setup': 'Add setup().',
       'Missing loop': 'Add loop().',
-      'Check setup brace': 'Add { after setup().',
-      'Check loop brace': 'Add { after loop().',
-      'Close setup first': 'Add } before loop().',
-      'Add if brace': 'Add { after the if condition.',
       'Code outside function': 'Move this code inside setup() or loop().'
     }[validationError] || validationError;
     const serialDetail = validationError === 'Brace error'
