@@ -368,8 +368,15 @@ function saveProjectFile() {
   var link = document.createElement('a');
   link.href = url;
   link.download = 'sensorshub-project.json';
+  // Mobile browsers are more likely to honor `download` when the link is
+  // attached to the document instead of being clicked while detached.
+  link.style.display = 'none';
+  document.body.appendChild(link);
   link.click();
-  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  setTimeout(function() {
+    URL.revokeObjectURL(url);
+    link.remove();
+  }, 1000);
   updateStatus('Project saved');
 }
 
