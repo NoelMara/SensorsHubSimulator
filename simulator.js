@@ -2776,6 +2776,11 @@ function validateSourceCode(sourceCode, mode) {
   if (!hasLoop) return 'Missing loop';
 
   if (!isPython) {
+    // Check all braces first so an extra or missing brace cannot fall through
+    // to a less precise setup/if rule.
+    const braceIssue = findBraceIssue(source);
+    if (braceIssue && braceIssue.type === 'extra') return 'Brace error';
+
     if (!/\bvoid\s+setup\s*\([^)]*\)\s*\{/.test(source)) return 'Check setup brace';
     if (!/\bvoid\s+loop\s*\([^)]*\)\s*\{/.test(source)) return 'Check loop brace';
 
@@ -2796,7 +2801,7 @@ function validateSourceCode(sourceCode, mode) {
     const setupBraceCount = (setupBody.match(/{/g) || []).length - (setupBody.match(/}/g) || []).length;
     if (setupBraceCount !== 0) return 'Close setup first';
 
-    if (findBraceIssue(source)) return 'Brace error';
+    if (braceIssue) return 'Brace error';
 
     let depth = 0;
     const executableAtTopLevel = /^(Serial\.|digitalWrite\s*\(|digitalRead\s*\(|analogWrite\s*\(|delay\s*\(|pinMode\s*\()/;
