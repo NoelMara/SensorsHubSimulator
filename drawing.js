@@ -235,6 +235,8 @@ function _getConnectedTo(comp, pin) {
 function findPinNear(mx, my, radius) {
   radius = radius || 14;
   var rSq = radius * radius;
+  var best = null;
+  var bestDist = Infinity;
 
   for (var i = 0; i < components.length; i++) {
     var c = components[i];
@@ -244,13 +246,15 @@ function findPinNear(mx, my, radius) {
       var p = c.pins[j];
       var dx = mx - p.x;
       var dy = my - p.y;
-      if (dx * dx + dy * dy < rSq) {
-        return { pin: p, comp: c };
+      var dist = dx * dx + dy * dy;
+      if (dist < rSq && dist < bestDist) {
+        bestDist = dist;
+        best = { pin: p, comp: c };
       }
     }
   }
 
-  return null;
+  return best;
 }
 
 function showPinTooltip(pin, comp, screenX, screenY) {
