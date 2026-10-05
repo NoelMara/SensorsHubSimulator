@@ -105,6 +105,8 @@ var _pinTooltipHoverTimer = null;
 var _pinTooltipHideTimer = null;
 var _pinTooltipLocked = false;
 var _pinTooltipTouchPin = null;
+var _pinLongPressTimer = null;
+var _pinLongPressShown = false;
 
 function createPinTooltip() {
   if (_pinTooltipEl) return _pinTooltipEl;
@@ -444,7 +446,35 @@ function initTooltip() {
     hidePinTooltip();
   });
 
+  c.addEventListener('touchstart', function(e) {
+    if (e.touches.length !== 1 || tool === 'wire') return;
+    var t = e.touches[0];
+    var zoom = window.zoomLevel || 1;
+    var cc = document.getElementById('canvas-container');
+    var cr = cc ? cc.getBoundingClientRect() : { left: 0, top: 0 };
+    var mx = (t.clientX - cr.left) / zoom;
+    var my = (t.clientY - cr.top) / zoom;
+    var hit = findPinNear(mx, my, Math.max(18, 28 / zoom));
+    if (!hit) return;
+    _pinLongPressShown = false;
+    if (_pinLongPressTimer) clearTimeout(_pinLongPressTimer);
+    _pinLongPressTimer = setTimeout(function() {
+      _pinLongPressShown = true;
+      _pinTooltipTouchPin = hit.pin;
+      showPinTooltip(hit.pin, hit.comp, t.clientX, t.clientY);
+    }, 550);
+  }, { passive: true });
+
+  c.addEventListener('touchmove', function() {
+    if (_pinLongPressTimer) clearTimeout(_pinLongPressTimer);
+    _pinLongPressTimer = null;
+  }, { passive: true });
+
   c.addEventListener('touchend', function(e) {
+    if (_pinLongPressTimer) clearTimeout(_pinLongPressTimer);
+    _pinLongPressTimer = null;
+    if (!_pinLongPressShown) return;
+    _pinLongPressShown = false;
     if (e.changedTouches.length !== 1) return;
 
     var t = e.changedTouches[0];
@@ -465,13 +495,13 @@ function initTooltip() {
       return;
     }
 
-    e.preventDefault();
-
     if (_pinTooltipLocked && _pinTooltipTouchPin === hit.pin) {
+      e.preventDefault();
       hidePinTooltip();
       return;
     }
 
+    e.preventDefault();
     _pinTooltipTouchPin = hit.pin;
     showPinTooltip(hit.pin, hit.comp, t.clientX, t.clientY);
   }, { passive: false });
