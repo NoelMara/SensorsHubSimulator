@@ -397,6 +397,14 @@ function restoreRecoveryProject() {
     var project = JSON.parse(raw);
     if (!project || project.format !== 'SensorsHub Simulator Project' ||
         project.version !== 1 || !Array.isArray(project.components) || !Array.isArray(project.wires)) return;
+    var inoCode = project.code && project.code.ino || '';
+    var pyCode = project.code && project.code.py || '';
+    var isDefaultProject = project.components.length === 0 && project.wires.length === 0 &&
+      (!inoCode.trim() || inoCode === _inoTemplate) && (!pyCode.trim() || pyCode === _pyTemplate);
+    if (isDefaultProject) {
+      localStorage.removeItem(RECOVERY_KEY);
+      return;
+    }
     window._pendingRecoveryProject = project;
     var overlay = document.getElementById('recovery-overlay');
     if (overlay) overlay.hidden = false;
@@ -414,6 +422,7 @@ function chooseRecovery(choice) {
     return;
   }
   if (choice !== 'restore' || !project) return;
+    try { localStorage.removeItem(RECOVERY_KEY); } catch (e) {}
     components = project.components;
     wires = project.wires;
     _savedContent.ino = project.code && project.code.ino || '';

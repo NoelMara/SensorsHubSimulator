@@ -388,6 +388,8 @@ function initTooltip() {
   createPinTooltip();
 
   c.addEventListener('mousemove', function(e) {
+    /* Touch browsers may synthesize mouse movement after a tap. */
+    if ('ontouchstart' in window) return;
     if (dragging) {
       _clearPinTooltipTimers();
       hidePinTooltip();
