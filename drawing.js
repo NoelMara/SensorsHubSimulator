@@ -940,14 +940,9 @@ function drawPico(c) {
   ctx.fillText('Raspberry Pi Pico', 0, 0);
   ctx.restore();
 
-  ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 10px JetBrains Mono, monospace';
-  ctx.fillText('USB', x + w / 2, y + 52);
-
   var onboardLedOn = typeof pinValues !== 'undefined' && !!pinValues.GP25;
   ctx.fillStyle = '#c8ffd2';
   ctx.font = 'bold 8px JetBrains Mono, monospace';
-  ctx.fillText('LED', x + 44, y + 74);
   if (onboardLedOn) {
     ctx.save();
     ctx.shadowColor = '#b7ff5a';
