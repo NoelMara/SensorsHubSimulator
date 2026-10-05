@@ -449,7 +449,7 @@ function initTooltip() {
   });
 
   c.addEventListener('touchstart', function(e) {
-    if (e.touches.length !== 1 || tool === 'wire') return;
+    if (e.touches.length !== 1) return;
     var t = e.touches[0];
     var zoom = window.zoomLevel || 1;
     var cc = document.getElementById('canvas-container');
@@ -464,7 +464,7 @@ function initTooltip() {
       _pinLongPressShown = true;
       _pinTooltipTouchPin = hit.pin;
       showPinTooltip(hit.pin, hit.comp, t.clientX, t.clientY);
-    }, 550);
+    }, 800);
   }, { passive: true });
 
   c.addEventListener('touchmove', function() {
