@@ -64,7 +64,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">5</div>
           <div class="help-step-content">
             <div class="help-step-title">Run the simulation and monitor output</div>
-            <div class="help-step-desc">Press <strong>&#9654; Run</strong> to start. Press <strong>&#9632; Stop</strong> to stop. Open <strong>Serial</strong> to see messages printed by your code. The simulator warns you if the board and code type do not match.</div>
+            <div class="help-step-desc">Press <strong>&#9654; Run</strong> to start. The same button changes to <strong>&#9632; Stop</strong> while the simulation is running. Open <strong>Serial</strong> to see messages printed by your code. The status pill shows whether the simulator is ready, running, or stopped.</div>
           </div>
         </div>
 
@@ -72,7 +72,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">6</div>
           <div class="help-step-content">
             <div class="help-step-title">Save or load a project</div>
-            <div class="help-step-desc">Use <strong>&#8595; Save</strong> to download your components, wire routes, and code as a project file. Use <strong>&#8593; Load</strong> to open that file later and continue where you stopped. Loading restores the project but does not start the simulation automatically.</div>
+            <div class="help-step-desc">Open the <strong>📁 File</strong> menu, then choose <strong>Save project</strong> to download your components, wire routes, and code. Choose <strong>Load project</strong> to open that file later. Loading restores the project but does not start the simulation automatically.</div>
           </div>
         </div>
 
@@ -120,7 +120,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#8635;</div>
           <div class="help-step-content">
             <div class="help-step-title">Reset a wire route</div>
-            <div class="help-step-desc">Click a wire, then press <strong>Reset Wire</strong> in the toolbar. This removes manual bends and creates a fresh automatic route without disconnecting the pins.</div>
+            <div class="help-step-desc">Click a wire, open the <strong>⋯ More</strong> menu, then choose <strong>Reset selected wire</strong>. This removes manual bends and creates a fresh automatic route without disconnecting the pins.</div>
           </div>
         </div>
 
@@ -136,7 +136,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#128465;</div>
           <div class="help-step-content">
             <div class="help-step-title">Clear the entire canvas</div>
-            <div class="help-step-desc">Click <strong>&#128465; Clear</strong> to remove every component and wire from the canvas.</div>
+            <div class="help-step-desc">Open the <strong>⋯ More</strong> menu and choose <strong>Clear all</strong> to remove every component and wire from the canvas.</div>
           </div>
         </div>
 
@@ -160,7 +160,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#9654;</div>
           <div class="help-step-content">
             <div class="help-step-title">Run and stop your sketch</div>
-            <div class="help-step-desc">Press <strong>&#9654; Run</strong> in the toolbar or inside the editor panel. Press <strong>&#9632; Stop</strong> to halt. If the placed board and selected code mode do not match, the simulator warns you instead of starting.</div>
+            <div class="help-step-desc">Press <strong>&#9654; Run</strong> in the toolbar or inside the editor panel. The toolbar button changes to <strong>&#9632; Stop</strong> while running. If the placed board and selected code mode do not match, the simulator warns you instead of starting.</div>
           </div>
         </div>
 
@@ -378,7 +378,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">8</div>
           <div class="help-step-content">
             <div class="help-step-title">Run again after code or wiring changes</div>
-            <div class="help-step-desc">If you edit code, move wires, or replace parts, press <strong>Stop</strong> and then <strong>Run</strong> again so the simulator reloads the current circuit and program state cleanly.</div>
+            <div class="help-step-desc">If you edit code, move wires, or replace parts while the simulation is running, press the toolbar's <strong>&#9632; Stop</strong>, then <strong>&#9654; Run</strong> again so the simulator reloads the current circuit and program state cleanly.</div>
           </div>
         </div>
 
