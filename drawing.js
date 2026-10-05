@@ -463,11 +463,10 @@ function initTooltip() {
     if (e.changedTouches.length !== 1) return;
 
     var t = e.changedTouches[0];
+    var touchPos = getCanvasXY(t);
     var zoom = window.zoomLevel || 1;
-    var cc = document.getElementById('canvas-container');
-    var cr = cc ? cc.getBoundingClientRect() : { left: 0, top: 0 };
-    var mx = (t.clientX - cr.left) / zoom;
-    var my = (t.clientY - cr.top) / zoom;
+    var mx = touchPos.x;
+    var my = touchPos.y;
 
     var hitR = Math.max(18, 28 / zoom);
     var hit = findPinNear(mx, my, hitR);
