@@ -378,6 +378,21 @@ html, body {
 .menu-item:hover { background: rgba(94,184,255,0.10); color: var(--text-bright); }
 .menu-item.danger:hover { background: rgba(255,112,123,0.12); color: var(--red); }
 
+.recovery-overlay {
+  position: fixed; inset: 0; z-index: 700; display: grid; place-items: center;
+  padding: 18px; background: rgba(3,8,14,0.68); backdrop-filter: blur(6px);
+}
+.recovery-overlay[hidden] { display: none; }
+.recovery-dialog {
+  width: min(420px, 100%); padding: 22px; border-radius: 18px;
+  border: 1px solid var(--border-strong); background: rgba(8,16,26,0.98);
+  box-shadow: var(--shadow-lg);
+}
+.recovery-title { color: var(--text-bright); font-size: 15px; font-weight: 700; }
+.recovery-text { margin-top: 8px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+.recovery-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+.recovery-actions .btn { min-height: 34px; padding: 7px 12px; }
+
 /* ============================================================
    MOBILE TAB BAR
    ============================================================ */

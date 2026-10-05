@@ -94,6 +94,17 @@
   <button class="menu-item" onclick="closeMenus(); checkCircuit()">✓ Check circuit</button>
   <button class="menu-item danger" onclick="closeMenus(); clearAll()">🗑 Clear all</button>
 </div>
+<div id="recovery-overlay" class="recovery-overlay" hidden>
+  <div class="recovery-dialog" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
+    <div id="recovery-title" class="recovery-title">Recover previous project?</div>
+    <div class="recovery-text">An autosaved project was found on this device.</div>
+    <div class="recovery-actions">
+      <button class="btn green" onclick="chooseRecovery('restore')">Restore</button>
+      <button class="btn" onclick="chooseRecovery('later')">Not now</button>
+      <button class="btn red" onclick="chooseRecovery('fresh')">Start fresh</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============================================================
      MOBILE TAB BAR  — 2 tabs (Parts tab removed)
@@ -338,6 +349,7 @@ function setEditorContent(content, placeholder) {
   editor.on('change', function() {
     var ta = document.getElementById('code-textarea');
     if (ta) ta.value = editor.getValue();
+    if (typeof scheduleRecoverySave === 'function') scheduleRecoverySave();
   });
 
   var ta = document.getElementById('code-textarea');
@@ -351,16 +363,72 @@ function getCode() {
     : document.getElementById('code-textarea').value;
 }
 
-function saveProjectFile() {
+/* ============================================================
+   LOCAL RECOVERY AUTOSAVE
+   ============================================================ */
+var RECOVERY_KEY = 'sensorshub-recovery-v1';
+var _recoveryTimer = null;
+
+function getProjectSnapshot() {
   _savedContent[window.fileMode] = getCode();
-  var project = {
+  return {
     format: 'SensorsHub Simulator Project',
     version: 1,
     fileMode: window.fileMode,
     code: { ino: _savedContent.ino || '', py: _savedContent.py || '' },
     components: JSON.parse(JSON.stringify(components)),
-    wires: JSON.parse(JSON.stringify(wires))
+    wires: JSON.parse(JSON.stringify(wires)),
+    savedAt: Date.now()
   };
+}
+
+function scheduleRecoverySave() {
+  if (_recoveryTimer) clearTimeout(_recoveryTimer);
+  _recoveryTimer = setTimeout(function() {
+    try { localStorage.setItem(RECOVERY_KEY, JSON.stringify(getProjectSnapshot())); }
+    catch (e) { /* Private browsing or storage limits: normal save still works. */ }
+  }, 250);
+}
+
+function restoreRecoveryProject() {
+  try {
+    var raw = localStorage.getItem(RECOVERY_KEY);
+    if (!raw) return;
+    var project = JSON.parse(raw);
+    if (!project || project.format !== 'SensorsHub Simulator Project' ||
+        project.version !== 1 || !Array.isArray(project.components) || !Array.isArray(project.wires)) return;
+    window._pendingRecoveryProject = project;
+    var overlay = document.getElementById('recovery-overlay');
+    if (overlay) overlay.hidden = false;
+  } catch (e) { /* Ignore invalid or unavailable recovery data. */ }
+}
+
+function chooseRecovery(choice) {
+  var overlay = document.getElementById('recovery-overlay');
+  if (overlay) overlay.hidden = true;
+  var project = window._pendingRecoveryProject;
+  window._pendingRecoveryProject = null;
+  if (choice === 'fresh') {
+    try { localStorage.removeItem(RECOVERY_KEY); } catch (e) {}
+    updateStatus('Started fresh');
+    return;
+  }
+  if (choice !== 'restore' || !project) return;
+    components = project.components;
+    wires = project.wires;
+    _savedContent.ino = project.code && project.code.ino || '';
+    _savedContent.py = project.code && project.code.py || '';
+    applyLoadedMode(project.fileMode === 'py' ? 'py' : 'ino');
+    if (typeof updateWireEndpointsFromPins === 'function') updateWireEndpointsFromPins();
+    if (typeof fixOffscreenComponents === 'function') fixOffscreenComponents();
+    if (typeof draw === 'function') draw();
+    updateStatus('Previous project restored');
+}
+
+window.scheduleRecoverySave = scheduleRecoverySave;
+
+function saveProjectFile() {
+  var project = getProjectSnapshot();
   var blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
   var jsonText = JSON.stringify(project, null, 2);
 
@@ -678,6 +746,7 @@ document.addEventListener('DOMContentLoaded', function() {
   if (typeof syncSparkCanvas === 'function')     syncSparkCanvas();
   if (typeof initTooltip === 'function')         initTooltip();
   safeResizeCanvas();
+  setTimeout(restoreRecoveryProject, 250);
 });
 
 /* ============================================================

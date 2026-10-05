@@ -128,6 +128,7 @@ function saveState() {
 
   if (actionHistory.length > 50) actionHistory.shift();
   redoHistory = [];
+  if (typeof scheduleRecoverySave === 'function') scheduleRecoverySave();
 }
 
 function restoreEditorState(state) {
