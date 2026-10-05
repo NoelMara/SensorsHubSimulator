@@ -46,7 +46,8 @@ function findPin(mx, my) {
       var p = c.pins[j];
       var dx = mx - p.x;
       var dy = my - p.y;
-      var radius = p.hitRadius || 10;
+      /* Keep the physical touch target usable when the canvas is zoomed out. */
+      var radius = (p.hitRadius || 10) / (window.zoomLevel || 1);
       var dist = dx * dx + dy * dy;
       if (dist < radius * radius && dist < bestDist) {
         bestPin = p;
