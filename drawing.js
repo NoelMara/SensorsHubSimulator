@@ -449,7 +449,7 @@ function initTooltip() {
   });
 
   c.addEventListener('touchstart', function(e) {
-    if (e.touches.length !== 1) return;
+    if (e.touches.length !== 1 || tool === 'wire') return;
     var t = e.touches[0];
     var zoom = window.zoomLevel || 1;
     var cc = document.getElementById('canvas-container');

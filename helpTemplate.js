@@ -307,7 +307,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-shortcut-row"><div class="help-shortcut-keys">&#128204; Studio tab</div><div class="help-shortcut-label">Switch to canvas view - tap the Build Kit panel to add components</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">{ } Code tab</div><div class="help-shortcut-label">Switch to code editor view</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Pinch gesture</div><div class="help-shortcut-label">Zoom in / out on the canvas</div></div>
-          <div class="help-shortcut-row"><div class="help-shortcut-keys">Long-press a pin</div><div class="help-shortcut-label">Show pin details in Wire mode; quick taps remain available for wiring</div></div>
+          <div class="help-shortcut-row"><div class="help-shortcut-keys">Long-press a pin</div><div class="help-shortcut-label">Show pin details; quick taps remain available for wiring</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Drag midpoint</div><div class="help-shortcut-label">Bend a wire segment</div></div>
         </div>
 
