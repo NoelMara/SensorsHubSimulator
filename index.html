@@ -33,56 +33,45 @@
 
   <div class="toolbar-sep"></div>
 
-  <button class="btn active" id="btn-wire" onclick="setTool('wire')" title="Wire (W)">
-    <span>〰</span><span class="btn-label">Wire</span>
-  </button>
-  <button class="btn" id="btn-move" onclick="setTool('move')" title="Move (M)">
-    <span>✥</span><span class="btn-label">Move</span>
-  </button>
-  <button class="btn red" id="btn-delete" onclick="setTool('delete')" title="Delete (D)">
-    <span>✕</span><span class="btn-label">Delete</span>
-  </button>
+  <div class="seg" role="group" aria-label="Tool mode">
+    <button class="btn active" id="btn-wire" onclick="setTool('wire')" title="Wire (W)">
+      <span>〰</span><span class="btn-label">Wire</span>
+    </button>
+    <button class="btn" id="btn-move" onclick="setTool('move')" title="Move (M)">
+      <span>✥</span><span class="btn-label">Move</span>
+    </button>
+    <button class="btn red" id="btn-delete" onclick="setTool('delete')" title="Delete (D)">
+      <span>✕</span><span class="btn-label">Delete</span>
+    </button>
+  </div>
 
   <div class="toolbar-sep"></div>
 
-  <button class="btn yellow" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)">
-    <span>↩</span><span class="btn-label">Undo</span>
-  </button>
-  <button class="btn yellow" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)">
-    <span>↪</span><span class="btn-label">Redo</span>
-  </button>
-  <button class="btn secondary-action" id="btn-reset-wire" onclick="resetSelectedWireRoute()" title="Reset selected wire route">
-    <span>↻</span><span class="btn-label">Reset Wire</span>
-  </button>
-  <button class="btn secondary-action" onclick="checkCircuit()" title="Check circuit wiring">
-    <span>✓</span><span class="btn-label">Check</span>
-  </button>
-  <button class="btn" onclick="clearAll()" title="Clear all">
-    <span>🗑</span><span class="btn-label">Clear</span>
-  </button>
+  <button class="btn icon-only" id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)"><span>↩</span></button>
+  <button class="btn icon-only" id="btn-redo" onclick="redo()" title="Redo (Ctrl+Y)"><span>↪</span></button>
 
   <div class="toolbar-sep"></div>
 
-  <button class="btn green" onclick="runCode()" title="Run simulation">
-    <span>▶</span><span class="btn-label">Run</span>
+  <button class="btn green" id="btn-run" onclick="toggleRun()" title="Run / Stop simulation">
+    <span id="btn-run-icon">▶</span><span class="btn-label" id="btn-run-label">Run</span>
   </button>
-  <button class="btn red" onclick="stopCode()" title="Stop simulation">
-    <span>■</span><span class="btn-label">Stop</span>
-  </button>
-  <button class="btn" onclick="toggleSerial()" title="Serial monitor">
+  <button class="btn icon-only" onclick="toggleSerial()" title="Serial monitor">
     <span>⌨</span><span class="btn-label">Serial</span>
   </button>
-  <button class="btn" id="btn-sound" onclick="toggleSound()" title="Enable buzzer sound">
+  <button class="btn icon-only" id="btn-sound" onclick="toggleSound()" title="Toggle buzzer sound">
     <span class="sound-icon">🔇</span><span class="btn-label">Sound Off</span>
   </button>
-  <button class="btn" id="btn-toggle-code" onclick="toggleCodePanel()" title="Toggle editor">
+  <button class="btn icon-only" id="btn-toggle-code" onclick="toggleCodePanel()" title="Toggle editor">
     <span>{ }</span><span class="btn-label">Editor</span>
   </button>
-  <button class="btn secondary-action" onclick="saveProjectFile()" title="Save project">
-    <span aria-hidden="true">&#128190;</span><span class="btn-label">Save</span>
+
+  <div class="toolbar-sep"></div>
+
+  <button class="btn" data-menu onclick="toggleMenu('menu-file', this)" title="Save / Load project">
+    <span>📁</span><span class="btn-label">File ▾</span>
   </button>
-  <button class="btn secondary-action" onclick="document.getElementById('project-file-input').click()" title="Load project">
-    <span aria-hidden="true">&#128194;</span><span class="btn-label">Load</span>
+  <button class="btn icon-only" data-menu onclick="toggleMenu('menu-more', this)" title="More actions">
+    <span>⋯</span>
   </button>
   <input id="project-file-input" type="file" accept=".json,application/json" hidden onchange="loadProjectFile(this.files[0]); this.value=''">
 
@@ -93,6 +82,17 @@
   </button>
 
   <div id="status">Ready</div>
+</div>
+
+<!-- Dropdown menus (outside #toolbar so its overflow/transform can't clip them) -->
+<div class="menu-pop" id="menu-file">
+  <button class="menu-item" onclick="closeMenus(); saveProjectFile()">💾 Save project</button>
+  <button class="menu-item" onclick="closeMenus(); document.getElementById('project-file-input').click()">📂 Load project</button>
+</div>
+<div class="menu-pop" id="menu-more">
+  <button class="menu-item" id="btn-reset-wire" onclick="closeMenus(); resetSelectedWireRoute()">↻ Reset selected wire</button>
+  <button class="menu-item" onclick="closeMenus(); checkCircuit()">✓ Check circuit</button>
+  <button class="menu-item danger" onclick="closeMenus(); clearAll()">🗑 Clear all</button>
 </div>
 
 <!-- ============================================================
@@ -137,7 +137,7 @@
         <div id="code-buttons">
           <button class="btn green" onclick="runCode()">▶ Run</button>
           <button class="btn red"   onclick="stopCode()">■ Stop</button>
-          <button class="btn yellow code-clear-btn" onclick="clearCodeEditor()">Clear Code</button>
+          <button class="btn secondary-action code-clear-btn" onclick="clearCodeEditor()">Clear Code</button>
         </div>
       </div>
     </div>
@@ -226,10 +226,8 @@
             <div class="comp-item" data-cat="sensors" onclick="addComponent('joystick')"   style="display:none"><span class="comp-icon">🕹️</span><span class="comp-name">Joystick</span></div>
             <div class="comp-item" data-cat="sensors" onclick="addComponent('ky004')"      style="display:none"><span class="comp-icon">🎛️</span><span class="comp-name">KY-004</span></div>
             <div class="comp-item" data-cat="sensors" onclick="addComponent('sw420')"      style="display:none"><span class="comp-icon">📳</span><span class="comp-name">SW-420</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('flame')" style="display:none"><span class="comp-icon">🔥</span><span class="comp-name">Flame Sensor</span>
-</div> 
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('hw201')" style="display:none"><span class="comp-icon">🚧</span><span class="comp-name">HW-201</span>
-</div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('flame')"      style="display:none"><span class="comp-icon">🔥</span><span class="comp-name">Flame Sensor</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('hw201')"      style="display:none"><span class="comp-icon">🚧</span><span class="comp-name">HW-201</span></div>
 
             <!-- Peripherals -->
             <div class="comp-item" data-cat="peripherals" onclick="addComponent('servo')"   style="display:none"><span class="comp-icon">⚙️</span><span class="comp-name">Servo</span></div>
@@ -698,6 +696,42 @@ document.querySelectorAll('.btn').forEach(function(btn) {
 });
 
 /* ============================================================
+   RUN / STOP TOGGLE + TOOLBAR MENUS
+   ============================================================ */
+function toggleRun() {
+  if (typeof running !== 'undefined' && running) stopCode(); else runCode();
+  syncRunBtn();
+}
+function syncRunBtn() {
+  var btn = document.getElementById('btn-run');
+  if (!btn) return;
+  var on = typeof running !== 'undefined' && !!running;
+  btn.classList.toggle('green', !on);
+  btn.classList.toggle('red', on);
+  document.getElementById('btn-run-icon').textContent  = on ? '■' : '▶';
+  document.getElementById('btn-run-label').textContent = on ? 'Stop' : 'Run';
+}
+setInterval(syncRunBtn, 150); /* catches stops from errors / shortcuts too */
+
+function closeMenus() {
+  document.querySelectorAll('.menu-pop.open').forEach(function(p) { p.classList.remove('open'); });
+}
+function toggleMenu(id, anchor) {
+  var pop = document.getElementById(id);
+  var wasOpen = pop.classList.contains('open');
+  closeMenus();
+  if (wasOpen) return;
+  var r = anchor.getBoundingClientRect();
+  pop.classList.add('open');
+  pop.style.top  = (r.bottom + 8) + 'px';
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.menu-pop') && !e.target.closest('[data-menu]')) closeMenus();
+});
+window.addEventListener('resize', closeMenus);
+
+/* ============================================================
    SIM RUN / STOP TOOLBAR STATE
    ============================================================ */
 document.addEventListener('DOMContentLoaded', function() {
@@ -781,6 +815,7 @@ window.addEventListener('resize', function() {
   function typewrite(msg) {
     if (_timer) clearInterval(_timer);
     el.textContent = '';
+    el.title = msg; /* full text on hover when the pill truncates */
     var i = 0;
     var chars = String(msg).split('');
     _timer = setInterval(function() {
