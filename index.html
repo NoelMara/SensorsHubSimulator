@@ -96,12 +96,11 @@
 </div>
 <div id="recovery-overlay" class="recovery-overlay" hidden>
   <div class="recovery-dialog" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
-    <div id="recovery-title" class="recovery-title">Recover previous project?</div>
-    <div class="recovery-text">An autosaved project was found on this device.</div>
-    <div class="recovery-actions">
-      <button class="btn green" onclick="chooseRecovery('restore')">Restore</button>
-      <button class="btn" onclick="chooseRecovery('later')">Not now</button>
-      <button class="btn red" onclick="chooseRecovery('fresh')">Start fresh</button>
+      <div id="recovery-title" class="recovery-title">Recover previous project?</div>
+      <div class="recovery-text">An autosaved project was found on this device.</div>
+      <div class="recovery-actions">
+        <button class="btn green" onclick="chooseRecovery('restore')">Restore</button>
+        <button class="btn red" onclick="chooseRecovery('fresh')">Start fresh</button>
     </div>
   </div>
 </div>
@@ -368,6 +367,7 @@ function getCode() {
    ============================================================ */
 var RECOVERY_KEY = 'sensorshub-recovery-v1';
 var _recoveryTimer = null;
+var _recoveryApplying = false;
 
 function getProjectSnapshot() {
   _savedContent[window.fileMode] = getCode();
@@ -383,6 +383,7 @@ function getProjectSnapshot() {
 }
 
 function scheduleRecoverySave() {
+  if (_recoveryApplying) return;
   if (_recoveryTimer) clearTimeout(_recoveryTimer);
   _recoveryTimer = setTimeout(function() {
     try { localStorage.setItem(RECOVERY_KEY, JSON.stringify(getProjectSnapshot())); }
@@ -423,6 +424,7 @@ function chooseRecovery(choice) {
   }
   if (choice !== 'restore' || !project) return;
     try { localStorage.removeItem(RECOVERY_KEY); } catch (e) {}
+    _recoveryApplying = true;
     components = project.components;
     wires = project.wires;
     _savedContent.ino = project.code && project.code.ino || '';
@@ -431,6 +433,7 @@ function chooseRecovery(choice) {
     if (typeof updateWireEndpointsFromPins === 'function') updateWireEndpointsFromPins();
     if (typeof fixOffscreenComponents === 'function') fixOffscreenComponents();
     if (typeof draw === 'function') draw();
+    _recoveryApplying = false;
     updateStatus('Previous project restored');
 }
 
