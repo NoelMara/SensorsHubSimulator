@@ -294,6 +294,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>M</kbd></div><div class="help-shortcut-label">Activate Move tool</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>D</kbd></div><div class="help-shortcut-label">Activate Delete tool</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Z</kbd></div><div class="help-shortcut-label">Undo last action</div></div>
+          <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Y</kbd></div><div class="help-shortcut-label">Redo the last undone action</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>Esc</kbd></div><div class="help-shortcut-label">Cancel the current wire or close the help modal</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>Scroll</kbd></div><div class="help-shortcut-label">Zoom in / out on the canvas</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Hover near pin</div><div class="help-shortcut-label">Show pin tooltip with name, type, and connection status</div></div>

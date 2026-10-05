@@ -1114,6 +1114,12 @@ function handleCanvasTouchCancel(e) {
 window.addEventListener('keydown', function(e) {
   if (isEditorTarget(e.target)) return;
 
+  if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+    e.preventDefault();
+    redo();
+    return;
+  }
+
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
     e.preventDefault();
     undo();
