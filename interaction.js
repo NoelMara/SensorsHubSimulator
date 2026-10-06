@@ -148,7 +148,7 @@ function showConnectionToast(message) {
 function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
   var points = [{ x: x1, y: y1 }];
   var current = { x: x1, y: y1 };
-  var margin = 18 + (stagger || 0) * 8;
+  var margin = 26 + (stagger || 0) * 8;
 
   // Resolve one blocking component at a time. Each pass checks every
   // component, so a detour cannot simply run through the next component.
@@ -166,12 +166,18 @@ function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
     ];
     var chosen = null;
 
+    var bestScore = Infinity;
     for (var i = 0; i < candidates.length; i++) {
       var candidate = candidates[i];
+      var currentBlocked = findBlockingComponents(current.x, current.y, candidate.x, candidate.y, excludeComps);
       var nextBlocked = findBlockingComponents(candidate.x, candidate.y, x2, y2, excludeComps);
-      if (!nextBlocked.length || nextBlocked.length < blocked.length) {
-        chosen = candidate;
-        break;
+      if (!currentBlocked.length && (!nextBlocked.length || nextBlocked.length < blocked.length)) {
+        var score = Math.abs(candidate.x - current.x) + Math.abs(candidate.y - current.y) +
+          Math.abs(x2 - candidate.x) + Math.abs(y2 - candidate.y);
+        if (score < bestScore) {
+          bestScore = score;
+          chosen = candidate;
+        }
       }
     }
 
@@ -200,7 +206,8 @@ function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
 }
 
 function getPinStub(pin, comp, stubLen) {
-  stubLen = stubLen || 22;
+  /* Give every automatic wire a clear straight exit before turning. */
+  stubLen = stubLen || 34;
   var bounds = comp ? getComponentBounds(comp) : null;
 
   if (pin.side === 'left') {
@@ -259,9 +266,11 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
       var midY = (stub1.y + stub2.y) / 2 + laneOffset;
       middle = [{ x: stub1.x, y: midY }, { x: stub2.x, y: midY }];
     } else if (horiz1) {
-      middle = [{ x: stub2.x + laneOffset, y: stub1.y }, { x: stub2.x + laneOffset, y: stub2.y }];
+      var mixedMidX1 = (stub1.x + stub2.x) / 2 + laneOffset;
+      middle = [{ x: mixedMidX1, y: stub1.y }, { x: mixedMidX1, y: stub2.y }];
     } else {
-      middle = [{ x: stub1.x + laneOffset, y: stub1.y }, { x: stub1.x + laneOffset, y: stub2.y }];
+      var mixedMidX2 = (stub1.x + stub2.x) / 2 + laneOffset;
+      middle = [{ x: mixedMidX2, y: stub1.y }, { x: mixedMidX2, y: stub2.y }];
     }
   }
 
@@ -578,7 +587,8 @@ function handleCanvasMouseMove(e) {
     return;
   }
 
-  var wi = findWireInteractive(mouseX, mouseY);
+  var pinUnderCursor = tool === 'wire' ? findPin(mouseX, mouseY) : null;
+  var wi = pinUnderCursor ? null : findWireInteractive(mouseX, mouseY);
   if (wi && tool !== 'delete') {
     canvas.style.cursor = wi.type === 'waypoint' ? 'grab' : 'crosshair';
   } else if (findPin(mouseX, mouseY)) {
@@ -785,7 +795,9 @@ function handleCanvasMouseDown(e) {
   }
 
   if (tool !== 'delete') {
-    var wireHit = findWireInteractive(x, y);
+    /* In Wire mode, a nearby pin must win over an overlapping wire handle. */
+    var wirePinHit = tool === 'wire' ? findPin(x, y) : null;
+    var wireHit = wirePinHit ? null : findWireInteractive(x, y);
     if (wireHit) {
       selectedWire = wireHit.wire;
       if (wireHit.type === 'waypoint') {

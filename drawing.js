@@ -525,6 +525,8 @@ function updateWireHandles(w) {
   w._handles = [];
 
   for (var i = 0; i < pts.length - 1; i++) {
+    /* Automatic pin stubs should stay visually clean and non-interactive. */
+    if (w.autoRoute !== false && (i === 0 || i === pts.length - 2)) continue;
     w._handles.push({
       x: (pts[i].x + pts[i + 1].x) / 2,
       y: (pts[i].y + pts[i + 1].y) / 2,
