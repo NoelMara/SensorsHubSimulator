@@ -85,6 +85,13 @@ function segmentIntersectsRect(x1, y1, x2, y2, rect) {
       Math.max(y1, y2) < rect.top || Math.min(y1, y2) > rect.bottom) {
     return false;
   }
+  // Catch segments whose endpoint is inside the rectangle. The edge-only
+  // test below misses that case and can let a wire pass through a component.
+  function pointInside(x, y) {
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+  if (pointInside(x1, y1) || pointInside(x2, y2)) return true;
+
   var edges = [
     [rect.left, rect.top, rect.right, rect.top],
     [rect.right, rect.top, rect.right, rect.bottom],
@@ -92,7 +99,15 @@ function segmentIntersectsRect(x1, y1, x2, y2, rect) {
     [rect.left, rect.bottom, rect.left, rect.top]
   ];
   for (var i = 0; i < edges.length; i++) {
-    if (segmentsIntersect(x1, y1, x2, y2, edges[i][0], edges[i][1], edges[i][2], edges[i][3])) return true;
+    var edge = edges[i];
+    if (segmentsIntersect(x1, y1, x2, y2, edge[0], edge[1], edge[2], edge[3])) return true;
+    // Also catch collinear overlap with a rectangle edge.
+    if (Math.abs(edge[0] - edge[2]) < 0.001 && Math.abs(x1 - x2) < 0.001 &&
+        Math.abs(x1 - edge[0]) < 0.001 && Math.max(y1, y2) >= Math.min(edge[1], edge[3]) &&
+        Math.min(y1, y2) <= Math.max(edge[1], edge[3])) return true;
+    if (Math.abs(edge[1] - edge[3]) < 0.001 && Math.abs(y1 - y2) < 0.001 &&
+        Math.abs(y1 - edge[1]) < 0.001 && Math.max(x1, x2) >= Math.min(edge[0], edge[2]) &&
+        Math.min(x1, x2) <= Math.max(edge[0], edge[2])) return true;
   }
   return false;
 }
@@ -104,7 +119,7 @@ function findBlockingComponents(x1, y1, x2, y2, excludeComps) {
     if (excludeComps.indexOf(comp) !== -1) continue;
     var rect = getComponentBounds(comp);
     // Keep wires a little away from component bodies and their labels.
-    var padding = 14;
+    var padding = 22;
     var safeRect = {
       left: rect.left - padding,
       top: rect.top - padding,
@@ -260,6 +275,49 @@ function simplifyWirePath(points) {
   return cleaned;
 }
 
+function wirePathBlocked(points, excludeComps) {
+  for (var i = 0; i < points.length - 1; i++) {
+    if (findBlockingComponents(
+      points[i].x, points[i].y,
+      points[i + 1].x, points[i + 1].y,
+      excludeComps
+    ).length) return true;
+  }
+  return false;
+}
+
+function wirePathNearUnrelatedPin(points, startPin, endPin) {
+  function pointSegmentDistanceSquared(px, py, ax, ay, bx, by) {
+    var dx = bx - ax;
+    var dy = by - ay;
+    var length = dx * dx + dy * dy;
+    var t = length ? ((px - ax) * dx + (py - ay) * dy) / length : 0;
+    t = Math.max(0, Math.min(1, t));
+    var nearX = ax + dx * t;
+    var nearY = ay + dy * t;
+    var offsetX = px - nearX;
+    var offsetY = py - nearY;
+    return offsetX * offsetX + offsetY * offsetY;
+  }
+
+  for (var ci = 0; ci < components.length; ci++) {
+    var comp = components[ci];
+    for (var pi = 0; pi < comp.pins.length; pi++) {
+      var pin = comp.pins[pi];
+      if (pin === startPin || pin === endPin) continue;
+      var clearance = (pin.hitRadius || 10) + 10;
+      for (var si = 0; si < points.length - 1; si++) {
+        if (pointSegmentDistanceSquared(
+          pin.x, pin.y,
+          points[si].x, points[si].y,
+          points[si + 1].x, points[si + 1].y
+        ) < clearance * clearance) return true;
+      }
+    }
+  }
+  return false;
+}
+
 function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   var startComp = findPinOwner(startPin);
   var endComp = findPinOwner(endPin);
@@ -287,6 +345,9 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   var endIsHorizontal = endPin.side === 'left' || endPin.side === 'right';
   var isBottomFanout = (startIsHorizontal && endPin.side === 'bottom') ||
     (endIsHorizontal && startPin.side === 'bottom');
+  // Component avoidance takes priority over the fan-out layout. If the
+  // direct route is blocked, use the obstacle detour instead of allowing a
+  // decorative fan-out path to enter a sensor body.
   if (blocked.length > 0 && !isBottomFanout) {
     middle = blocked;
   } else {
@@ -307,18 +368,25 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
         // Bottom-facing sensor pins fan out below the component instead of
         // sharing the target pin's horizontal line.
         var endPinFanout = getPinFanoutOffset(endPin, endComp);
-        var bottomFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset +
-          endPinFanout;
+        var bottomFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset + endPinFanout;
         // Rejoin the destination pin's own X column directly. The fan-out
         // row provides separation; an additional approach column creates a
         // box-shaped detour.
         var bottomApproachX = stub2.x;
-        middle.push(
-          { x: mixedMidX1 + endPinFanout, y: stub1.y },
-          { x: mixedMidX1 + endPinFanout, y: bottomFanoutY },
-          { x: bottomApproachX, y: bottomFanoutY },
-          { x: bottomApproachX, y: stub2.y }
-        );
+        var bottomMiddle;
+        for (var bottomTry = 0; bottomTry < 8; bottomTry++) {
+          bottomMiddle = [
+            { x: mixedMidX1 + endPinFanout, y: stub1.y },
+            { x: mixedMidX1 + endPinFanout, y: bottomFanoutY },
+            { x: bottomApproachX, y: bottomFanoutY },
+            { x: bottomApproachX, y: stub2.y }
+          ];
+          var bottomRoute = [{ x: stub1.x, y: stub1.y }].concat(bottomMiddle).concat([{ x: stub2.x, y: stub2.y }]);
+          if (!wirePathBlocked(bottomRoute, excludeComps) &&
+              !wirePathNearUnrelatedPin(bottomRoute, startPin, endPin)) break;
+          bottomFanoutY += 32;
+        }
+        middle = bottomMiddle;
       } else {
       if (forwardCorridorY !== stub1.y) {
         middle.push({ x: stub1.x, y: forwardCorridorY });
@@ -335,14 +403,21 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
       if (startPin.side === 'bottom') {
         // Sensor-to-board routes use the same dedicated fan-out area.
         var startPinFanout = getPinFanoutOffset(startPin, startComp);
-        var reverseFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset +
-          startPinFanout;
+        var reverseFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset + startPinFanout;
         var reverseApproachX = stub1.x;
-        middle.push(
-          { x: stub1.x, y: reverseFanoutY },
-          { x: reverseApproachX, y: reverseFanoutY },
-          { x: reverseApproachX, y: stub2.y }
-        );
+        var reverseMiddle;
+        for (var reverseTry = 0; reverseTry < 8; reverseTry++) {
+          reverseMiddle = [
+            { x: stub1.x, y: reverseFanoutY },
+            { x: reverseApproachX, y: reverseFanoutY },
+            { x: reverseApproachX, y: stub2.y }
+          ];
+          var reverseRoute = [{ x: stub1.x, y: stub1.y }].concat(reverseMiddle).concat([{ x: stub2.x, y: stub2.y }]);
+          if (!wirePathBlocked(reverseRoute, excludeComps) &&
+              !wirePathNearUnrelatedPin(reverseRoute, startPin, endPin)) break;
+          reverseFanoutY += 32;
+        }
+        middle = reverseMiddle;
       } else {
       if (reverseCorridorY !== stub1.y) {
         middle.push({ x: stub1.x, y: reverseCorridorY });
