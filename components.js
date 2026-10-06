@@ -297,23 +297,31 @@ if (type === 'esp32' || type === 'pico') {
   var comp = null;
   var mcuX = type === 'esp32' ? cx - 90 : cx - 80;
 
+  // Keep this factory grouped like the Component Library categories.
+  // These labels are organizational comments only; internal type names are
+  // deliberately unchanged so saved projects and simulator code keep working.
+  // Microcontrollers
   if      (type === 'esp32')      comp = createESP32(mcuX, cy);
   else if (type === 'pico')       comp = createPico(mcuX, cy);
+  // Lights
   else if (type === 'led_red')    comp = createLED(cx, cy, '#ff3344', 'Red');
   else if (type === 'led_green')  comp = createLED(cx, cy, '#22dd55', 'Green');
   else if (type === 'led_blue')   comp = createLED(cx, cy, '#3399ff', 'Blue');
   else if (type === 'led_yellow') comp = createLED(cx, cy, '#ffdd00', 'Yellow');
+  // Sensors
   else if (type === 'ultrasonic') comp = createUltrasonic(cx, cy);
   else if (type === 'dht')        comp = createDHT22(cx, cy);
   else if (type === 'pir')        comp = createPIR(cx, cy);
   else if (type === 'ldr')        comp = createLDR(cx, cy);
-  else if (type === 'servo')      comp = createServo(cx, cy);
+  else if (type === 'flame')      comp = createFlame(cx, cy);
+  else if (type === 'hw201')      comp = createHW201(cx, cy);
+  // Inputs
   else if (type === 'button')     comp = createButton(cx, cy);
   else if (type === 'joystick')   comp = createJoystick(cx, cy);
   else if (type === 'ky004')      comp = createKY004(cx, cy);
   else if (type === 'sw420')      comp = createSW420(cx, cy);
-  else if (type === 'flame')      comp = createFlame(cx, cy);
-  else if (type === 'hw201')      comp = createHW201(cx, cy);
+  // Peripherals
+  else if (type === 'servo')      comp = createServo(cx, cy);
   else if (type === 'buzzer')     comp = createBuzzer(cx, cy);
   else if (type === 'ssd1306')    comp = createSSD1306(cx, cy);
 
@@ -699,6 +707,7 @@ function createLDR(x, y) {
   return c;
 }
 
+// INPUTS
 function createButton(x, y) {
   var c = {
     id: mkId(),
@@ -779,6 +788,7 @@ function createSW420(x, y) {
   return c;
 }
 
+// SENSORS (continued)
 function createFlame(x, y) {
   var c = {
     id: mkId(),
@@ -820,7 +830,7 @@ function createHW201(x, y) {
   return c;
 }
 // ==========================================
-// OUTPUT
+// PERIPHERALS / OUTPUTS
 // ==========================================
 
 function createServo(x, y) {

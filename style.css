@@ -817,6 +817,7 @@ canvas {
 }
 .cat-tab[data-cat="lights"].active    { color: var(--yellow); border-color: rgba(255,202,95, 0.32); background: rgba(255,202,95, 0.08); box-shadow: 0 0 10px rgba(255,202,95, 0.08); }
 .cat-tab[data-cat="sensors"].active   { color: var(--green);  border-color: rgba(69,217,167,0.32); background: rgba(69,217,167,0.08); box-shadow: 0 0 10px rgba(69,217,167,0.08); }
+.cat-tab[data-cat="inputs"].active    { color: #b392f0; border-color: rgba(179,146,240,0.32); background: rgba(179,146,240,0.08); box-shadow: 0 0 10px rgba(179,146,240,0.08); }
 .cat-tab[data-cat="peripherals"].active { color: var(--orange); border-color: rgba(255,160,112,0.32); background: rgba(255,160,112,0.08); box-shadow: 0 0 10px rgba(255,160,112,0.08); }
 
 /* ── Component items ── */
@@ -857,6 +858,7 @@ canvas {
 .comp-item[data-cat="mcu"]:hover         { border-color: rgba(94,184,255,0.55);  box-shadow: 0 6px 24px rgba(94,184,255,0.18),  inset 0 1px 0 rgba(255,255,255,0.04); background: linear-gradient(180deg,rgba(18,44,68,0.98), rgba(12,30,48,0.98)); }
 .comp-item[data-cat="lights"]:hover      { border-color: rgba(255,202,95,0.55);  box-shadow: 0 6px 24px rgba(255,202,95,0.18),  inset 0 1px 0 rgba(255,255,255,0.04); background: linear-gradient(180deg,rgba(52,42,16,0.98), rgba(38,30,12,0.98)); }
 .comp-item[data-cat="sensors"]:hover     { border-color: rgba(69,217,167,0.55);  box-shadow: 0 6px 24px rgba(69,217,167,0.18),  inset 0 1px 0 rgba(255,255,255,0.04); background: linear-gradient(180deg,rgba(14,46,36,0.98), rgba(10,34,26,0.98)); }
+.comp-item[data-cat="inputs"]:hover      { border-color: rgba(179,146,240,0.55); box-shadow: 0 6px 24px rgba(179,146,240,0.18), inset 0 1px 0 rgba(255,255,255,0.04); background: linear-gradient(180deg,rgba(43,32,68,0.98), rgba(28,22,48,0.98)); }
 .comp-item[data-cat="peripherals"]:hover { border-color: rgba(255,160,112,0.55); box-shadow: 0 6px 24px rgba(255,160,112,0.18), inset 0 1px 0 rgba(255,255,255,0.04); background: linear-gradient(180deg,rgba(50,30,16,0.98), rgba(38,22,12,0.98)); }
 
 /* ============================================================
@@ -1094,6 +1096,7 @@ canvas {
   display: flex; align-items: center; justify-content: center;
 }
 .help-step-content { flex: 1; }
+.help-step-badge.bend-badge { font-size: 13px; line-height: 1; }
 .help-step-title {
   font-size: 12px; font-weight: 700; color: var(--text-bright);
   margin-bottom: 4px;

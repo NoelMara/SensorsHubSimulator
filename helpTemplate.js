@@ -101,7 +101,7 @@ window.HELP_MODAL_HTML = `
         </div>
 
         <div class="help-step">
-          <div class="help-step-badge">&#8617;</div>
+          <div class="help-step-badge bend-badge">&#8618;</div>
           <div class="help-step-content">
             <div class="help-step-title">Bend wires around components</div>
             <div class="help-step-desc">Drag a wire midpoint to add a bend and keep your layout readable. <strong>Double-click</strong> a bend point to remove it.</div>
@@ -223,51 +223,55 @@ window.HELP_MODAL_HTML = `
         <div class="help-comp-section-title">Sensors</div>
         <div class="help-comp-grid">
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128225;</span><strong>HC-SR04 Ultrasonic</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#128225;</span><strong>HC-SR04</strong></div>
             <span>Measures distance. Connect <code>VCC</code> and <code>GND</code> for power, <code>Trig</code> to the trigger pin in your code, and <code>Echo</code> to the echo pin. In Arduino, use <code>pulseIn()</code>. In MicroPython, use <code>time_pulse_us()</code>. Move the distance slider to simulate an object.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#127777;</span><strong>DHT22 Temp &amp; Humidity</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#127777;</span><strong>DHT22</strong></div>
             <span>Measures temperature and humidity. Connect power, ground, and the data pin. The drawing may show <code>+</code>, <code>OUT</code>, and <code>-</code>; these match <code>VCC</code>, <code>Data</code>, and <code>GND</code>. Use the sliders to change the readings. Arduino supports <code>readTemperature()</code> and <code>readHumidity()</code>. MicroPython supports <code>measure()</code>, <code>temperature()</code>, and <code>humidity()</code>.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HC-SR501 PIR Motion Sensor</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HC-SR501</strong></div>
             <span>Detects motion. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. Read <code>OUT</code> with <code>digitalRead()</code>. It reads <code>HIGH</code> when motion is detected and <code>LOW</code> when idle. Click the sensor dome to turn motion on or off.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#127774;</span><strong>LDR Light Sensor</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#127774;</span><strong>KY-018</strong></div>
             <span>Measures light level. Connect <code>VCC</code>, <code>GND</code>, and signal pin <code>S</code>. Read <code>S</code> with <code>analogRead()</code>. Higher values mean brighter light. Use the slider to change the simulated light.</span>
           </div>
+          <div class="help-comp-card">
+            <div class="help-comp-top"><span class="help-comp-icon">&#128293;</span><strong>HW-491</strong></div>
+            <span>Detects flame or strong infrared light. Connect <code>VCC</code>, <code>GND</code>, digital output <code>DO</code>, and optional analog output <code>AO</code>. <code>DO</code> reads <code>LOW</code> when flame is detected. Read <code>AO</code> with <code>analogRead()</code> for flame strength. Click the sensor or use the slider to change the flame level.</span>
+          </div>
+          <div class="help-comp-card">
+            <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HW-201</strong></div>
+            <span>Detects a nearby obstacle. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. It reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
+          </div>
+        </div>
+
+        <div class="help-comp-section-title">Inputs</div>
+        <div class="help-comp-grid">
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#128280;</span><strong>Button</strong></div>
             <span>A pressable input. Connect one side to a GPIO pin and the other side to <code>GND</code>. With <code>INPUT_PULLUP</code>, <code>digitalRead()</code> returns <code>LOW</code> while pressed and <code>HIGH</code> when released. Hold the canvas button to keep it pressed.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128433;</span><strong>Joystick (KY-023)</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#128433;</span><strong>KY-023</strong></div>
             <span>Gives left/right and up/down movement. Connect <code>VCC</code>, <code>GND</code>, <code>VRX</code>, <code>VRY</code>, and <code>SW</code>. Read <code>VRX</code> and <code>VRY</code> with <code>analogRead()</code>. Click the joystick cap to press the switch; <code>SW</code> reads <code>LOW</code> when pressed.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#127897;</span><strong>KY-004 Key Switch</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#127897;</span><strong>KY-004</strong></div>
             <span>A small push button module. Connect <code>VCC</code>, <code>GND</code>, and signal pin <code>S</code>. Read <code>S</code> with <code>digitalRead()</code>. It reads <code>LOW</code> when pressed and <code>HIGH</code> when released. Click the cap to toggle it.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128243;</span><strong>SW-420 Vibration Sensor</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#128243;</span><strong>SW-420</strong></div>
             <span>Detects shaking or vibration. Connect <code>VCC</code>, <code>GND</code>, and digital output <code>DO</code>. Read <code>DO</code> with <code>digitalRead()</code>. It reads <code>HIGH</code> when vibration is detected and <code>LOW</code> when stable. Click the sensor body to toggle vibration.</span>
-          </div>
-          <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128293;</span><strong>Flame Sensor</strong></div>
-            <span>Detects flame or strong infrared light. Connect <code>VCC</code>, <code>GND</code>, digital output <code>DO</code>, and optional analog output <code>AO</code>. <code>DO</code> reads <code>LOW</code> when flame is detected. Read <code>AO</code> with <code>analogRead()</code> for flame strength. Click the sensor or use the slider to change the flame level.</span>
-          </div>
-          <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HW-201 IR Obstacle</strong></div>
-<span>Detects a nearby obstacle. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. It reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
           </div>
         </div>
 
         <div class="help-comp-section-title">Peripherals</div>
         <div class="help-comp-grid">
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#9881;</span><strong>Servo Motor</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#9881;</span><strong>SG90</strong></div>
             <span>Rotates to an angle. Connect <code>VCC</code>, <code>GND</code>, and signal pin <code>PWM</code>. In Arduino mode, use the <code>Servo</code> library and <code>servo.write(angle)</code> from <code>0</code> to <code>180</code>. In MicroPython, PWM duty changes the displayed angle. The horn rotates on the canvas.</span>
           </div>
           <div class="help-comp-card">
@@ -275,7 +279,7 @@ window.HELP_MODAL_HTML = `
             <span>Makes a beep sound in projects. Connect <code>+</code> to a GPIO pin and <code>-</code> to <code>GND</code>. Turn on the toolbar's <strong>Sound</strong> button, then use <code>tone(pin, frequency)</code> to play and <code>noTone(pin)</code> to stop.</span>
           </div>
           <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128223;</span><strong>OLED Display (SSD1306)</strong></div>
+            <div class="help-comp-top"><span class="help-comp-icon">&#128223;</span><strong>SSD1306</strong></div>
             <span>Shows text or simple graphics. Connect <code>VCC</code>, <code>GND</code>, <code>SCL</code>, and <code>SDA</code>. In Arduino mode, use <code>Wire</code> and <code>Adafruit_SSD1306</code>; in MicroPython, use <code>ssd1306.SSD1306_I2C</code>. On ESP32, the common wiring is <code>SCL</code> to <code>D22</code> and <code>SDA</code> to <code>D21</code>. The screen updates while your sketch runs.</span>
           </div>
         </div>

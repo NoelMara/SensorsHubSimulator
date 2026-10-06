@@ -502,19 +502,16 @@ function drawWirePath(w) {
   ctx.save();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-
-  ctx.strokeStyle = 'rgba(0,0,0,0.38)';
-  ctx.lineWidth = 5;
+  // Render one wire only. The old thick under-stroke made each connection
+  // look like two parallel wires on the dark canvas.
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.42)';
+  ctx.shadowBlur = 3;
+  ctx.shadowOffsetY = 1;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-  ctx.stroke();
-
-  ctx.strokeStyle = col;
-  ctx.lineWidth = 2.5;
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x, pts[0].y);
-  for (var j = 1; j < pts.length; j++) ctx.lineTo(pts[j].x, pts[j].y);
   ctx.stroke();
 
   ctx.restore();
@@ -525,8 +522,8 @@ function drawWireGhost(points, color, opacity) {
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = color || '#4d9fff';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 5]);
+  ctx.lineWidth = 3;
+  ctx.setLineDash([9, 6]);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
@@ -635,6 +632,25 @@ function drawAllComponents() {
   });
 }
 
+function drawDragPlacementCue() {
+  if (typeof dragging === 'undefined' || !dragging || !dragging.componentMoved || !dragging.comp) return;
+  var bounds = getComponentBounds(dragging.comp);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(94, 217, 167, 0.9)';
+  ctx.fillStyle = 'rgba(69, 217, 167, 0.07)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 5]);
+  ctx.fillRect(bounds.left - 7, bounds.top - 7, bounds.width + 14, bounds.height + 14);
+  ctx.strokeRect(bounds.left - 7, bounds.top - 7, bounds.width + 14, bounds.height + 14);
+  ctx.setLineDash([]);
+  ctx.font = '600 11px Sora, sans-serif';
+  ctx.fillStyle = '#b8ffe3';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('DROP TO REROUTE', bounds.left + bounds.width / 2, bounds.top - 12);
+  ctx.restore();
+}
+
 function draw() {
   if (!ctx || !canvas) return;
 
@@ -682,6 +698,13 @@ function draw() {
   });
 
   drawAllComponents();
+  drawDragPlacementCue();
+
+  if (typeof dragging !== 'undefined' && dragging && dragging.wireGhosts && dragging.wireGhosts.length) {
+    dragging.wireGhosts.forEach(function(ghost) {
+      drawWireGhost(ghost.points, ghost.color || '#4d9fff', 0.38);
+    });
+  }
 
   wires.forEach(drawWireControls);
 
@@ -692,39 +715,65 @@ function draw() {
       if (previewTarget === wireStart) previewTarget = null;
     }
 
-    var previewPoints = [{ x: wireStart.x, y: wireStart.y }];
+    // Keep the cursor connection stable while the pointer is moving. The
+    // routed path is only an extra hint when the pointer is actually over a
+    // pin; this avoids the preview appearing to jump between route shapes.
+    var cursorPoints = [{ x: wireStart.x, y: wireStart.y }, { x: mouseX, y: mouseY }];
+    var previewPoints = null;
     if (previewTarget && typeof buildWireWaypoints === 'function') {
       // Preview the same lane that the next automatic wire will receive.
       // Using lane 0 here made the hint differ from the connected wire.
       var previewLane = typeof getAvailableWireLane === 'function'
         ? getAvailableWireLane()
         : 0;
-      previewPoints = previewPoints
+      previewPoints = [{ x: wireStart.x, y: wireStart.y }]
         .concat(buildWireWaypoints(wireStart, previewTarget, [], 0, previewLane))
         .concat([{ x: previewTarget.x, y: previewTarget.y }]);
-    } else {
-      previewPoints.push({ x: mouseX, y: mouseY });
     }
 
+    // Draw exactly one preview path. A direct cursor guide is used while the
+    // pointer is in open space; once over a pin, replace it with the routed
+    // connection. Drawing both makes one preview look like two wires.
     ctx.strokeStyle = wireStart.color || '#4d9fff';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
+    ctx.globalAlpha = previewPoints ? 0.58 : 0.8;
+    ctx.lineWidth = previewPoints ? 2 : 2.5;
+    ctx.setLineDash(previewPoints ? [3, 5] : [6, 6]);
     ctx.beginPath();
-    ctx.moveTo(previewPoints[0].x, previewPoints[0].y);
-    for (var pi = 1; pi < previewPoints.length; pi++) {
-      ctx.lineTo(previewPoints[pi].x, previewPoints[pi].y);
+    if (previewPoints) {
+      ctx.moveTo(previewPoints[0].x, previewPoints[0].y);
+      for (var pi = 1; pi < previewPoints.length; pi++) {
+        ctx.lineTo(previewPoints[pi].x, previewPoints[pi].y);
+      }
+    } else {
+      ctx.moveTo(cursorPoints[0].x, cursorPoints[0].y);
+      ctx.lineTo(cursorPoints[1].x, cursorPoints[1].y);
     }
     ctx.stroke();
     ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
 
     if (previewTarget) {
       ctx.fillStyle = previewTarget.color || '#4d9fff';
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#45d9a7';
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(previewTarget.x, previewTarget.y, 6, 0, Math.PI * 2);
+      ctx.arc(previewTarget.x, previewTarget.y, 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+
+      // Small, unobtrusive confirmation that the pin can be selected.
+      ctx.font = '600 11px Sora, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      var targetLabel = 'Connect to ' + (previewTarget.name || 'pin');
+      var labelX = previewTarget.x + 13;
+      var labelY = previewTarget.y - 14;
+      var labelWidth = ctx.measureText(targetLabel).width + 14;
+      ctx.fillStyle = 'rgba(7, 18, 29, 0.92)';
+      ctx.fillRect(labelX - 5, labelY - 9, labelWidth, 18);
+      ctx.fillStyle = '#b8ffe3';
+      ctx.fillText(targetLabel, labelX + 2, labelY);
+      ctx.textAlign = 'start';
     }
   }
 }

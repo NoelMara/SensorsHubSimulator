@@ -144,7 +144,14 @@ function resetSelectedWireRoute() {
   saveState();
   selectedWire.autoRoute = true;
   if (typeof selectedWire.lane !== 'number') selectedWire.lane = 0;
-  selectedWire.waypoints = buildWireWaypoints(p1, p2, [], 0, selectedWire.lane);
+  // Use the same route pipeline as component moves and project reloads so a
+  // reset wire cannot disagree with the rest of the automatic wiring.
+  selectedWire.waypoints = [];
+  window._routingWire = selectedWire;
+  selectedWire.waypoints = simplifyWirePath(
+    buildWireWaypoints(p1, p2, [], 0, selectedWire.lane)
+  );
+  window._routingWire = null;
   syncWireEndpoints(selectedWire);
   updateStatus('Wire route reset');
   draw();
@@ -1131,23 +1138,6 @@ function handleCanvasMouseMove(e) {
     var dy = mouseY - dragging.sy;
     dragging.componentMoved = true;
 
-    if (!dragging.wireGhosts) {
-      dragging.wireGhosts = [];
-      wires.forEach(function(w) {
-        var connected = dragging.comp.pins && dragging.comp.pins.some(function(pin) {
-          return pin.id === w.pin1Id || pin.id === w.pin2Id;
-        });
-        if (!connected) return;
-        dragging.wireGhosts.push({
-          points: [{ x: w.x1, y: w.y1 }]
-            .concat((w.waypoints || []).map(function(point) {
-              return { x: point.x, y: point.y };
-            }))
-            .concat([{ x: w.x2, y: w.y2 }]),
-          color: w.color
-        });
-      });
-    }
     dragging.comp.x += dx;
     dragging.comp.y += dy;
 
@@ -1160,32 +1150,48 @@ function handleCanvasMouseMove(e) {
 
     syncAllWireEndpoints();
 
+    // Read-only future routes for the placement preview. These are not
+    // assigned to the real wires until the component is released.
+    dragging.wireGhosts = [];
     wires.forEach(function(w, wi) {
       if (w.autoRoute === false) return;
       var connected = dragging.comp.pins && dragging.comp.pins.some(function(pin) {
-        return pin.id === w.pin1Id || pin.id === w.pin2Id;
+        var pinId = getPinId(pin);
+        return pinId === w.pin1Id || pinId === w.pin2Id;
       });
       if (!connected) return;
       if (typeof w.lane !== 'number') w.lane = (wi % 5) - 2;
       var p1 = findPinById(w.pin1Id);
       var p2 = findPinById(w.pin2Id);
       if (!p1 || !p2) return;
-      w._previewWhileDragging = true;
-      w._previewPoints = [{ x: p1.x, y: p1.y }]
-        .concat(buildWireWaypoints(p1, p2, [], 0, w.lane || 0) || [])
-        .concat([{ x: p2.x, y: p2.y }]);
+      window._routingWire = w;
+      var futureWaypoints = simplifyWirePath(buildWireWaypoints(p1, p2, [], 0, w.lane));
+      window._routingWire = null;
+      dragging.wireGhosts.push({
+        points: [{ x: p1.x, y: p1.y }]
+          .concat(futureWaypoints || [])
+          .concat([{ x: p2.x, y: p2.y }]),
+        color: w.color || '#4d9fff'
+      });
     });
 
-    // Automatic wires follow moved components. Manually edited wires keep
-    // their chosen bends while their endpoints remain attached to the pins.
-    wires.forEach(function(w, wi) {
-      if (w.autoRoute === false) return;
-      if (typeof w.lane !== 'number') w.lane = (wi % 5) - 2;
-      var p1 = findPinById(w.pin1Id);
-      var p2 = findPinById(w.pin2Id);
-      if (!p1 || !p2) return;
-      w.waypoints = buildWireWaypoints(p1, p2, [], 0, w.lane || 0);
-    });
+    // Keep the last drag details available for console diagnostics after the
+    // mouse is released, since the console cannot be inspected mid-drag.
+    window._lastWireDragDebug = {
+      component: dragging.comp.type,
+      realWires: wires.length,
+      autoRouteWires: wires.filter(function(w) { return w.autoRoute !== false; }).length,
+      ghostWires: dragging.wireGhosts.length,
+      ghostPointCounts: dragging.wireGhosts.map(function(g) { return g.points.length; }),
+      ghostRoutes: dragging.wireGhosts.map(function(g) {
+        return g.points.map(function(p) { return { x: Math.round(p.x), y: Math.round(p.y) }; });
+      })
+    };
+
+    // Keep the existing route stable while dragging. Re-routing every mouse
+    // move creates a second-looking ghost wire and makes the connection feel
+    // as though it is moving independently. Automatic routes are recalculated
+    // once, after the component is released, in clearDragging().
 
     dragging.sx = mouseX;
     dragging.sy = mouseY;

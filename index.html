@@ -211,6 +211,7 @@
             <div class="cat-tab active" data-cat="mcu"         onclick="switchCat('mcu')">🖥 Microcontrollers</div>
             <div class="cat-tab"        data-cat="lights"      onclick="switchCat('lights')">💡 Lights</div>
             <div class="cat-tab"        data-cat="sensors"     onclick="switchCat('sensors')">📡 Sensors</div>
+            <div class="cat-tab"        data-cat="inputs"      onclick="switchCat('inputs')">🎛 Inputs</div>
             <div class="cat-tab"        data-cat="peripherals" onclick="switchCat('peripherals')">🔧 Peripherals</div>
           </div>
 
@@ -230,19 +231,19 @@
             <!-- Sensors -->
             <div class="comp-item" data-cat="sensors" onclick="addComponent('ultrasonic')" style="display:none"><span class="comp-icon">📡</span><span class="comp-name">HC-SR04</span></div>
             <div class="comp-item" data-cat="sensors" onclick="addComponent('dht')"        style="display:none"><span class="comp-icon">🌡️</span><span class="comp-name">DHT22</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('pir')"        style="display:none"><span class="comp-icon">🚨</span><span class="comp-name">PIR</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('ldr')"        style="display:none"><span class="comp-icon">🌞</span><span class="comp-name">LDR</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('button')"     style="display:none"><span class="comp-icon">🔘</span><span class="comp-name">Button</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('joystick')"   style="display:none"><span class="comp-icon">🕹️</span><span class="comp-name">Joystick</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('ky004')"      style="display:none"><span class="comp-icon">🎛️</span><span class="comp-name">KY-004</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('sw420')"      style="display:none"><span class="comp-icon">📳</span><span class="comp-name">SW-420</span></div>
-            <div class="comp-item" data-cat="sensors" onclick="addComponent('flame')"      style="display:none"><span class="comp-icon">🔥</span><span class="comp-name">Flame Sensor</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('pir')"        style="display:none"><span class="comp-icon">🚨</span><span class="comp-name">HC-SR501</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('ldr')"        style="display:none"><span class="comp-icon">🌞</span><span class="comp-name">KY-018</span></div>
+            <div class="comp-item" data-cat="inputs" onclick="addComponent('button')"     style="display:none"><span class="comp-icon">🔘</span><span class="comp-name">Button</span></div>
+            <div class="comp-item" data-cat="inputs" onclick="addComponent('joystick')"   style="display:none"><span class="comp-icon">🕹️</span><span class="comp-name">KY-023</span></div>
+            <div class="comp-item" data-cat="inputs" onclick="addComponent('ky004')"      style="display:none"><span class="comp-icon">🎛️</span><span class="comp-name">KY-004</span></div>
+            <div class="comp-item" data-cat="inputs" onclick="addComponent('sw420')"      style="display:none"><span class="comp-icon">📳</span><span class="comp-name">SW-420</span></div>
+            <div class="comp-item" data-cat="sensors" onclick="addComponent('flame')"      style="display:none"><span class="comp-icon">🔥</span><span class="comp-name">HW-491</span></div>
             <div class="comp-item" data-cat="sensors" onclick="addComponent('hw201')"      style="display:none"><span class="comp-icon">🚧</span><span class="comp-name">HW-201</span></div>
 
             <!-- Peripherals -->
-            <div class="comp-item" data-cat="peripherals" onclick="addComponent('servo')"   style="display:none"><span class="comp-icon">⚙️</span><span class="comp-name">Servo</span></div>
+            <div class="comp-item" data-cat="peripherals" onclick="addComponent('servo')"   style="display:none"><span class="comp-icon">⚙️</span><span class="comp-name">SG90</span></div>
             <div class="comp-item" data-cat="peripherals" onclick="addComponent('buzzer')"  style="display:none"><span class="comp-icon">🔔</span><span class="comp-name">Buzzer</span></div>
-            <div class="comp-item" data-cat="peripherals" onclick="addComponent('ssd1306')" style="display:none"><span class="comp-icon">📟</span><span class="comp-name">OLED</span></div>
+            <div class="comp-item" data-cat="peripherals" onclick="addComponent('ssd1306')" style="display:none"><span class="comp-icon">📟</span><span class="comp-name">SSD1306</span></div>
           </div>
         </div>
           <div id="component-search-empty" style="display:none;padding:10px 18px;color:var(--text-dim);font-size:10px;text-align:center">No components found</div>
@@ -261,7 +262,7 @@
 <!-- ============================================================
      SCRIPTS
      ============================================================ -->
-<script src="drawing.js"></script>
+<script src="drawing.js?v=20261006-wire-preview-2"></script>
 <script src="components.js"></script>
 <script src="interaction.js"></script>
 <script src="LibraryRegistry.js"></script>
