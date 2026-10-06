@@ -675,24 +675,9 @@ function draw() {
     if (!w._previewWhileDragging) drawWirePath(w);
   });
 
-  if (typeof dragging !== 'undefined' && dragging && dragging.wireGhosts) {
-    var movedX = (typeof mouseX === 'number' ? mouseX : 0) - dragging.dragStartX;
-    var movedY = (typeof mouseY === 'number' ? mouseY : 0) - dragging.dragStartY;
-    var movedDistance = Math.sqrt(movedX * movedX + movedY * movedY);
-    var ghostOpacity = movedDistance < 10 ? 0 : Math.max(0.07, 0.24 - movedDistance / 500);
-    dragging.wireGhosts.forEach(function(ghost) {
-      drawWireGhost(ghost.points, ghost.color, Math.max(0.18, ghostOpacity));
-    });
-  }
-  if (typeof dragging !== 'undefined' && dragging && dragging.wirePreviews) {
-    dragging.wirePreviews.forEach(function(preview) {
-      drawWireGhost(preview.points, '#c9ced8', 0.7);
-    });
-  }
-
   wires.forEach(function(w) {
     if (w._previewPoints) {
-      drawWireGhost(w._previewPoints, '#c9ced8', 0.7);
+      drawWireGhost(w._previewPoints, '#f0b35b', 0.9);
     }
   });
 
