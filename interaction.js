@@ -221,6 +221,57 @@ function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
   return points;
 }
 
+// Choose a complete orthogonal route from obstacle boundary coordinates. This
+// evaluates the whole two-turn path instead of deciding one bend at a time.
+function computeVisibilityRoute(x1, y1, x2, y2, excludeComps, lane) {
+  var margin = 30;
+  var offset = (lane || 0) * WIRE_LANE_SPACING;
+  var xs = [x1, x2, (x1 + x2) / 2 + offset];
+  var ys = [y1, y2, (y1 + y2) / 2 + offset];
+
+  // Try several nearby parallel lanes instead of stopping at one midpoint.
+  for (var laneStep = -3; laneStep <= 3; laneStep++) {
+    ys.push(y1 + laneStep * WIRE_LANE_SPACING);
+    ys.push(y2 + laneStep * WIRE_LANE_SPACING);
+    xs.push(x1 + laneStep * WIRE_LANE_SPACING);
+    xs.push(x2 + laneStep * WIRE_LANE_SPACING);
+  }
+
+  components.forEach(function(comp) {
+    if (excludeComps.indexOf(comp) !== -1) return;
+    var rect = getComponentBounds(comp);
+    xs.push(rect.left - margin, rect.right + margin);
+    ys.push(rect.top - margin, rect.bottom + margin);
+  });
+
+  var best = null;
+  var bestScore = Infinity;
+  function consider(points) {
+    var full = [{ x: x1, y: y1 }].concat(points).concat([{ x: x2, y: y2 }]);
+    var score = 0;
+    for (var i = 0; i < full.length - 1; i++) {
+      var a = full[i];
+      var b = full[i + 1];
+      if (a.x !== b.x && a.y !== b.y) return;
+      if (findBlockingComponents(a.x, a.y, b.x, b.y, excludeComps).length) return;
+      score += Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+    }
+    if (lane && points.length && points[0].y === points[1].y &&
+        (points[0].y === y1 || points[0].y === y2)) {
+      score += 900;
+    }
+    score += points.length * 80;
+    if (score < bestScore) {
+      bestScore = score;
+      best = points;
+    }
+  }
+
+  xs.forEach(function(x) { consider([{ x: x, y: y1 }, { x: x, y: y2 }]); });
+  ys.forEach(function(y) { consider([{ x: x1, y: y }, { x: x2, y: y }]); });
+  return best || computeAutoWaypoints(x1, y1, x2, y2, excludeComps, 0, lane);
+}
+
 function getPinStub(pin, comp, stubLen) {
   /* Give every automatic wire a clear straight exit before turning. */
   stubLen = stubLen || 34;
@@ -368,6 +419,11 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
         // Bottom-facing sensor pins fan out below the component instead of
         // sharing the target pin's horizontal line.
         var endPinFanout = getPinFanoutOffset(endPin, endComp);
+        var sensorBounds = endComp ? getComponentBounds(endComp) : null;
+        var sensorCenterX = sensorBounds ? sensorBounds.left + sensorBounds.width / 2 : stub2.x;
+        var outsideSensorX = sensorBounds
+          ? (stub1.x <= sensorCenterX ? sensorBounds.left - 28 : sensorBounds.right + 28)
+          : (stub1.x + stub2.x) / 2;
         var bottomFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset + endPinFanout;
         // Rejoin the destination pin's own X column directly. The fan-out
         // row provides separation; an additional approach column creates a
@@ -376,8 +432,8 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
         var bottomMiddle;
         for (var bottomTry = 0; bottomTry < 8; bottomTry++) {
           bottomMiddle = [
-            { x: mixedMidX1 + endPinFanout, y: stub1.y },
-            { x: mixedMidX1 + endPinFanout, y: bottomFanoutY },
+            { x: outsideSensorX + laneOffset, y: stub1.y },
+            { x: outsideSensorX + laneOffset, y: bottomFanoutY },
             { x: bottomApproachX, y: bottomFanoutY },
             { x: bottomApproachX, y: stub2.y }
           ];
@@ -437,6 +493,17 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   if (stub2.x !== rawStub2.x || stub2.y !== rawStub2.y) waypoints.push(stub2);
   if (rawStub2.x !== endPin.x || rawStub2.y !== endPin.y) waypoints.push(rawStub2);
 
+  // Keep the dedicated bottom-pin fan-out route. The visibility route is
+  // used for other connections, but must not overwrite this longer route.
+  if (!isBottomFanout) {
+    var routedMiddle = computeVisibilityRoute(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, lane);
+    waypoints = [];
+    if (rawStub1.x !== startPin.x || rawStub1.y !== startPin.y) waypoints.push(rawStub1);
+    if (stub1.x !== rawStub1.x || stub1.y !== rawStub1.y) waypoints.push(stub1);
+    waypoints = waypoints.concat(routedMiddle);
+    if (stub2.x !== rawStub2.x || stub2.y !== rawStub2.y) waypoints.push(rawStub2);
+    if (rawStub2.x !== endPin.x || rawStub2.y !== endPin.y) waypoints.push(rawStub2);
+  }
   return simplifyWirePath(waypoints);
 }
 
