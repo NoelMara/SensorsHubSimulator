@@ -942,6 +942,7 @@ function releaseHeldButton() {
 }
 
 function clearDragging(resetCursor) {
+  wires.forEach(function(w) { delete w._dragGhost; });
   dragging = null;
   if (canvas && resetCursor) {
     canvas.style.cursor = 'crosshair';
@@ -1119,6 +1120,24 @@ function handleCanvasMouseMove(e) {
 
     var dx = mouseX - dragging.sx;
     var dy = mouseY - dragging.sy;
+
+    if (!dragging.wireGhosts) {
+      dragging.wireGhosts = [];
+      wires.forEach(function(w) {
+        var connected = dragging.comp.pins && dragging.comp.pins.some(function(pin) {
+          return pin.id === w.pin1Id || pin.id === w.pin2Id;
+        });
+        if (!connected) return;
+        dragging.wireGhosts.push({
+          points: [{ x: w.x1, y: w.y1 }]
+            .concat((w.waypoints || []).map(function(point) {
+              return { x: point.x, y: point.y };
+            }))
+            .concat([{ x: w.x2, y: w.y2 }]),
+          color: w.color
+        });
+      });
+    }
     dragging.comp.x += dx;
     dragging.comp.y += dy;
 
@@ -1395,7 +1414,13 @@ function handleCanvasMouseDown(e) {
     var comp = findComponent(x, y);
     if (comp) {
       saveState();
-      dragging = { comp: comp, sx: x, sy: y };
+      dragging = {
+        comp: comp,
+        sx: x,
+        sy: y,
+        dragStartX: x,
+        dragStartY: y
+      };
       updateStatus('Moving...');
     }
     return;
