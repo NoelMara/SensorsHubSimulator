@@ -942,10 +942,19 @@ function releaseHeldButton() {
 }
 
 function clearDragging(resetCursor) {
-  wires.forEach(function(w) { delete w._dragGhost; });
+  var shouldCommit = !!(dragging && dragging.componentMoved);
+  wires.forEach(function(w) {
+    delete w._dragGhost;
+    delete w._previewWhileDragging;
+    delete w._previewPoints;
+  });
   dragging = null;
   if (canvas && resetCursor) {
     canvas.style.cursor = 'crosshair';
+  }
+  if (shouldCommit && typeof rerouteAutomaticWires === 'function') {
+    rerouteAutomaticWires();
+    if (typeof draw === 'function') draw();
   }
 }
 
@@ -1120,6 +1129,7 @@ function handleCanvasMouseMove(e) {
 
     var dx = mouseX - dragging.sx;
     var dy = mouseY - dragging.sy;
+    dragging.componentMoved = true;
 
     if (!dragging.wireGhosts) {
       dragging.wireGhosts = [];
@@ -1149,6 +1159,22 @@ function handleCanvasMouseMove(e) {
     }
 
     syncAllWireEndpoints();
+
+    wires.forEach(function(w, wi) {
+      if (w.autoRoute === false) return;
+      var connected = dragging.comp.pins && dragging.comp.pins.some(function(pin) {
+        return pin.id === w.pin1Id || pin.id === w.pin2Id;
+      });
+      if (!connected) return;
+      if (typeof w.lane !== 'number') w.lane = (wi % 5) - 2;
+      var p1 = findPinById(w.pin1Id);
+      var p2 = findPinById(w.pin2Id);
+      if (!p1 || !p2) return;
+      w._previewWhileDragging = true;
+      w._previewPoints = [{ x: p1.x, y: p1.y }]
+        .concat(buildWireWaypoints(p1, p2, [], 0, w.lane || 0) || [])
+        .concat([{ x: p2.x, y: p2.y }]);
+    });
 
     // Automatic wires follow moved components. Manually edited wires keep
     // their chosen bends while their endpoints remain attached to the pins.
