@@ -432,6 +432,7 @@ function chooseRecovery(choice) {
     applyLoadedMode(project.fileMode === 'py' ? 'py' : 'ino');
     if (typeof updateWireEndpointsFromPins === 'function') updateWireEndpointsFromPins();
     if (typeof fixOffscreenComponents === 'function') fixOffscreenComponents();
+    window._wireRoutingUpdated = false;
     if (typeof draw === 'function') draw();
     _recoveryApplying = false;
     updateStatus('Previous project restored');
@@ -508,6 +509,7 @@ function loadProjectFile(file) {
       applyLoadedMode(project.fileMode === 'py' ? 'py' : 'ino');
       if (typeof updateWireEndpointsFromPins === 'function') updateWireEndpointsFromPins();
       if (typeof fixOffscreenComponents === 'function') fixOffscreenComponents();
+      window._wireRoutingUpdated = false;
       if (typeof draw === 'function') draw();
       updateStatus('Project loaded');
     } catch (error) {

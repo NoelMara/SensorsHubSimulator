@@ -347,7 +347,36 @@ function computePortAwareRoute(x1, y1, x2, y2, excludeComps, lane, startPin, end
   return candidates[0].points;
 }
 
-function computeGridOrthogonalRoute(x1, y1, x2, y2, excludeComps, startPin, endPin) {
+function wireCorridorBlocked(a, b, ignoreWire) {
+  var clearance = 10;
+  var horizontal = Math.abs(a.y - b.y) < 0.001;
+  var vertical = Math.abs(a.x - b.x) < 0.001;
+  if (!horizontal && !vertical) return false;
+
+  function rangesOverlap(a1, a2, b1, b2) {
+    return Math.max(Math.min(a1, a2), Math.min(b1, b2)) <=
+      Math.min(Math.max(a1, a2), Math.max(b1, b2));
+  }
+
+  for (var wi = 0; wi < wires.length; wi++) {
+    var existing = wires[wi];
+    if (existing === ignoreWire) continue;
+    var points = [{ x: existing.x1, y: existing.y1 }]
+      .concat(existing.waypoints || [])
+      .concat([{ x: existing.x2, y: existing.y2 }]);
+    for (var si = 0; si < points.length - 1; si++) {
+      var p = points[si];
+      var q = points[si + 1];
+      if (horizontal && Math.abs(p.y - q.y) < 0.001 && Math.abs(a.y - p.y) < clearance &&
+          rangesOverlap(a.x, b.x, p.x, q.x)) return true;
+      if (vertical && Math.abs(p.x - q.x) < 0.001 && Math.abs(a.x - p.x) < clearance &&
+          rangesOverlap(a.y, b.y, p.y, q.y)) return true;
+    }
+  }
+  return false;
+}
+
+function computeGridOrthogonalRoute(x1, y1, x2, y2, excludeComps, startPin, endPin, ignoreWire, lane) {
   // A finer grid reduces the large clearance jumps around component edges.
   var step = 12;
   var minX = Math.min(x1, x2);
@@ -377,7 +406,15 @@ function computeGridOrthogonalRoute(x1, y1, x2, y2, excludeComps, startPin, endP
   var directions = [{ x: step, y: 0 }, { x: -step, y: 0 }, { x: 0, y: step }, { x: 0, y: -step }];
 
   function validSegment(a, b) {
-    return !findBlockingComponents(a.x, a.y, b.x, b.y, excludeComps).length;
+    var horizontal = Math.abs(a.y - b.y) < 0.001;
+    var vertical = Math.abs(a.x - b.x) < 0.001;
+    // Non-zero lanes must not reuse the exact endpoint corridor. This keeps
+    // later wires from collapsing onto the first wire's horizontal/vertical
+    // path when the components are close together.
+    if (lane && horizontal && (Math.abs(a.y - y1) < 0.001 || Math.abs(a.y - y2) < 0.001)) return false;
+    if (lane && vertical && (Math.abs(a.x - x1) < 0.001 || Math.abs(a.x - x2) < 0.001)) return false;
+    return !findBlockingComponents(a.x, a.y, b.x, b.y, excludeComps).length &&
+      !wireCorridorBlocked(a, b, ignoreWire);
   }
 
   // Prefer the side where the source component is located. This keeps a
@@ -622,7 +659,8 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   // The rebuilt automatic router has one source of truth: the orthogonal
   // grid search. It handles every pin direction consistently.
   var cleanRoute = computeGridOrthogonalRoute(
-    stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, startPin, endPin
+    stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, startPin, endPin,
+    window._routingWire || null, lane
   );
   if (cleanRoute && cleanRoute.length) {
     var cleanWaypoints = [];
@@ -633,6 +671,24 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
     if (rawStub2.x !== endPin.x || rawStub2.y !== endPin.y) cleanWaypoints.push(rawStub2);
     return simplifyWirePath(cleanWaypoints);
   }
+
+  // Never fall back to the old midpoint router: it recreates shared buses.
+  // Use a simple lane-separated orthogonal route instead.
+  var fallbackY = stub1.y + laneOffset;
+  var fallbackX = (stub1.x + stub2.x) / 2 + laneOffset;
+  var fallbackRoute = [
+    { x: stub1.x, y: fallbackY },
+    { x: fallbackX, y: fallbackY },
+    { x: fallbackX, y: stub2.y },
+    { x: stub2.x, y: stub2.y }
+  ];
+  var fallbackWaypoints = [];
+  if (rawStub1.x !== startPin.x || rawStub1.y !== startPin.y) fallbackWaypoints.push(rawStub1);
+  if (stub1.x !== rawStub1.x || stub1.y !== rawStub1.y) fallbackWaypoints.push(stub1);
+  fallbackWaypoints = fallbackWaypoints.concat(fallbackRoute);
+  if (stub2.x !== rawStub2.x || stub2.y !== rawStub2.y) fallbackWaypoints.push(stub2);
+  if (rawStub2.x !== endPin.x || rawStub2.y !== endPin.y) fallbackWaypoints.push(rawStub2);
+  return simplifyWirePath(fallbackWaypoints);
 
   var blocked = computeAutoWaypoints(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, stagger, lane);
 
@@ -817,7 +873,9 @@ function rerouteAutomaticWires() {
     // Automatic routes are rebuilt from scratch. Do not carry old bends into
     // the new calculation after a component moves.
     w.waypoints = [];
+    window._routingWire = w;
     w.waypoints = simplifyWirePath(buildWireWaypoints(p1, p2, [], 0, w.lane));
+    window._routingWire = null;
   });
 }
 
