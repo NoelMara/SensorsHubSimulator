@@ -622,7 +622,8 @@ function drawAllComponents() {
 function draw() {
   if (!ctx || !canvas) return;
 
-  // Upgrade older automatic wires to the current routing layout once.
+  // Recalculate automatic wires once on page load. Manual routes are ignored
+  // by rerouteAutomaticWires().
   if (!window._wireRoutingUpdated && typeof rerouteAutomaticWires === 'function') {
     window._wireRoutingUpdated = true;
     rerouteAutomaticWires();
@@ -671,8 +672,13 @@ function draw() {
 
     var previewPoints = [{ x: wireStart.x, y: wireStart.y }];
     if (previewTarget && typeof buildWireWaypoints === 'function') {
+      // Preview the same lane that the next automatic wire will receive.
+      // Using lane 0 here made the hint differ from the connected wire.
+      var previewLane = typeof getAvailableWireLane === 'function'
+        ? getAvailableWireLane()
+        : 0;
       previewPoints = previewPoints
-        .concat(buildWireWaypoints(wireStart, previewTarget, [], 0))
+        .concat(buildWireWaypoints(wireStart, previewTarget, [], 0, previewLane))
         .concat([{ x: previewTarget.x, y: previewTarget.y }]);
     } else {
       previewPoints.push({ x: mouseX, y: mouseY });

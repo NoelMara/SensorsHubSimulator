@@ -119,7 +119,9 @@ function findBlockingComponents(x1, y1, x2, y2, excludeComps) {
     if (excludeComps.indexOf(comp) !== -1) continue;
     var rect = getComponentBounds(comp);
     // Keep wires a little away from component bodies and their labels.
-    var padding = 22;
+    // Keep the actual component body blocked, but use a smaller outer margin
+    // so automatic routes do not detour far away from the component edge.
+    var padding = (comp.type === 'esp32' || comp.type === 'pico') ? 4 : 10;
     var safeRect = {
       left: rect.left - padding,
       top: rect.top - padding,
@@ -223,11 +225,32 @@ function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
 
 // Choose a complete orthogonal route from obstacle boundary coordinates. This
 // evaluates the whole two-turn path instead of deciding one bend at a time.
-function computeVisibilityRoute(x1, y1, x2, y2, excludeComps, lane) {
+function computeVisibilityRoute(x1, y1, x2, y2, excludeComps, lane, startPin, endPin) {
+  var portRoute = computePortAwareRoute(x1, y1, x2, y2, excludeComps, lane, startPin, endPin);
+  if (portRoute) return portRoute;
+  var gridRoute = computeGridOrthogonalRoute(x1, y1, x2, y2, excludeComps, startPin, endPin);
+  if (gridRoute) return gridRoute;
+
   var margin = 30;
   var offset = (lane || 0) * WIRE_LANE_SPACING;
   var xs = [x1, x2, (x1 + x2) / 2 + offset];
   var ys = [y1, y2, (y1 + y2) / 2 + offset];
+
+  // Add lanes on the outside of the destination component. This makes the
+  // route approach a bottom/top/side pin from its actual port direction.
+  var destination = endPin && findPinOwner(endPin);
+  if (destination) {
+    var destinationBounds = getComponentBounds(destination);
+    if (endPin.side === 'bottom') {
+      ys.push(destinationBounds.bottom + margin, destinationBounds.bottom + margin + Math.abs(offset));
+    } else if (endPin.side === 'top') {
+      ys.push(destinationBounds.top - margin, destinationBounds.top - margin - Math.abs(offset));
+    } else if (endPin.side === 'left') {
+      xs.push(destinationBounds.left - margin, destinationBounds.left - margin - Math.abs(offset));
+    } else if (endPin.side === 'right') {
+      xs.push(destinationBounds.right + margin, destinationBounds.right + margin + Math.abs(offset));
+    }
+  }
 
   // Try several nearby parallel lanes instead of stopping at one midpoint.
   for (var laneStep = -3; laneStep <= 3; laneStep++) {
@@ -272,6 +295,180 @@ function computeVisibilityRoute(x1, y1, x2, y2, excludeComps, lane) {
   return best || computeAutoWaypoints(x1, y1, x2, y2, excludeComps, 0, lane);
 }
 
+function computePortAwareRoute(x1, y1, x2, y2, excludeComps, lane, startPin, endPin) {
+  var destination = endPin && findPinOwner(endPin);
+  if (!destination) return null;
+  var rect = getComponentBounds(destination);
+  var margin = 12;
+  var laneOffset = (lane || 0) * WIRE_LANE_SPACING;
+  var candidates = [];
+
+  function addCandidate(points, preference) {
+    var full = [{ x: x1, y: y1 }].concat(points).concat([{ x: x2, y: y2 }]);
+    var length = 0;
+    for (var i = 0; i < full.length - 1; i++) {
+      var a = full[i];
+      var b = full[i + 1];
+      if (a.x !== b.x && a.y !== b.y) return;
+      if (findBlockingComponents(a.x, a.y, b.x, b.y, excludeComps).length) return;
+      length += Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+    }
+    candidates.push({ points: points, score: length + points.length * 50 - preference });
+  }
+
+  if (endPin.side === 'bottom') {
+    var bottomY = rect.bottom + margin + Math.abs(laneOffset);
+    addCandidate([
+      { x: x1, y: bottomY },
+      { x: x2, y: bottomY }
+    ], 40);
+  } else if (endPin.side === 'top') {
+    var topY = rect.top - margin - Math.abs(laneOffset);
+    addCandidate([
+      { x: x1, y: topY },
+      { x: x2, y: topY }
+    ], 40);
+  } else if (endPin.side === 'left') {
+    var leftX = rect.left - margin - Math.abs(laneOffset);
+    addCandidate([
+      { x: leftX, y: y1 },
+      { x: leftX, y: y2 }
+    ], 40);
+  } else if (endPin.side === 'right') {
+    var rightX = rect.right + margin + Math.abs(laneOffset);
+    addCandidate([
+      { x: rightX, y: y1 },
+      { x: rightX, y: y2 }
+    ], 40);
+  }
+
+  if (!candidates.length) return null;
+  candidates.sort(function(a, b) { return a.score - b.score; });
+  return candidates[0].points;
+}
+
+function computeGridOrthogonalRoute(x1, y1, x2, y2, excludeComps, startPin, endPin) {
+  // A finer grid reduces the large clearance jumps around component edges.
+  var step = 12;
+  var minX = Math.min(x1, x2);
+  var maxX = Math.max(x1, x2);
+  var minY = Math.min(y1, y2);
+  var maxY = Math.max(y1, y2);
+  components.forEach(function(comp) {
+    var rect = getComponentBounds(comp);
+    minX = Math.min(minX, rect.left - 96);
+    maxX = Math.max(maxX, rect.right + 96);
+    minY = Math.min(minY, rect.top - 96);
+    maxY = Math.max(maxY, rect.bottom + 96);
+  });
+  minX = Math.floor(minX / step) * step;
+  minY = Math.floor(minY / step) * step;
+  maxX = Math.ceil(maxX / step) * step;
+  maxY = Math.ceil(maxY / step) * step;
+
+  function snap(value) { return Math.round(value / step) * step; }
+  var start = { x: snap(x1), y: snap(y1) };
+  var goal = { x: snap(x2), y: snap(y2) };
+  var startKey = start.x + ',' + start.y;
+  var goalKey = goal.x + ',' + goal.y;
+  var queue = [start];
+  var cameFrom = {};
+  cameFrom[startKey] = null;
+  var directions = [{ x: step, y: 0 }, { x: -step, y: 0 }, { x: 0, y: step }, { x: 0, y: -step }];
+
+  function validSegment(a, b) {
+    return !findBlockingComponents(a.x, a.y, b.x, b.y, excludeComps).length;
+  }
+
+  // Prefer the side where the source component is located. This keeps a
+  // sensor above a controller from taking an unnecessary route underneath it.
+  var sourceComp = startPin && findPinOwner(startPin);
+  var targetComp = endPin && findPinOwner(endPin);
+  if (sourceComp && targetComp) {
+    var sourceBounds = getComponentBounds(sourceComp);
+    var targetBounds = getComponentBounds(targetComp);
+    var sourceCenterY = sourceBounds.top + sourceBounds.height / 2;
+    var targetCenterY = targetBounds.top + targetBounds.height / 2;
+    if (sourceCenterY < targetCenterY) {
+      var topY = targetBounds.top - 16;
+      var sourceSideX = x1 <= sourceBounds.left
+        ? sourceBounds.left - 16
+        : sourceBounds.right + 16;
+      var targetSideX = targetBounds.left - 16;
+      var upperRoute = [
+        { x: sourceSideX, y: y1 },
+        { x: sourceSideX, y: topY },
+        { x: targetSideX, y: topY },
+        { x: targetSideX, y: y2 },
+        { x: x2, y: y2 }
+      ];
+      if (!wirePathBlocked([{ x: x1, y: y1 }].concat(upperRoute), excludeComps)) {
+        return upperRoute;
+      }
+    }
+  }
+
+  while (queue.length) {
+    var current = queue.shift();
+    var currentKey = current.x + ',' + current.y;
+    if (currentKey === goalKey) break;
+    for (var di = 0; di < directions.length; di++) {
+      var next = { x: current.x + directions[di].x, y: current.y + directions[di].y };
+      if (next.x < minX || next.x > maxX || next.y < minY || next.y > maxY) continue;
+      var nextKey = next.x + ',' + next.y;
+      if (cameFrom[nextKey] !== undefined || !validSegment(current, next)) continue;
+      cameFrom[nextKey] = currentKey;
+      queue.push(next);
+    }
+  }
+
+  if (cameFrom[goalKey] === undefined) return null;
+  var gridPath = [];
+  var key = goalKey;
+  while (key) {
+    var parts = key.split(',');
+    gridPath.unshift({ x: Number(parts[0]), y: Number(parts[1]) });
+    key = cameFrom[key];
+  }
+
+  var route = [{ x: start.x, y: y1 }, { x: start.x, y: start.y }];
+  gridPath.slice(1, -1).forEach(function(point) { route.push(point); });
+  route.push({ x: goal.x, y: goal.y }, { x: goal.x, y: y2 }, { x: x2, y: y2 });
+  return route;
+}
+
+function computeCleanOrthogonalRoute(x1, y1, x2, y2, excludeComps, lane) {
+  var offset = (lane || 0) * WIRE_LANE_SPACING;
+  var candidates = [
+    [{ x: x1, y: y2 }, { x: x2, y: y2 }],
+    [{ x: x2, y: y1 }, { x: x2, y: y2 }],
+    [{ x: (x1 + x2) / 2 + offset, y: y1 }, { x: (x1 + x2) / 2 + offset, y: y2 }],
+    [{ x: x1, y: (y1 + y2) / 2 + offset }, { x: x2, y: (y1 + y2) / 2 + offset }]
+  ];
+  var best = null;
+  var bestScore = Infinity;
+  candidates.forEach(function(points) {
+    var full = [{ x: x1, y: y1 }].concat(points).concat([{ x: x2, y: y2 }]);
+    var score = points.length * 60;
+    for (var i = 0; i < full.length - 1; i++) {
+      var a = full[i];
+      var b = full[i + 1];
+      if (a.x !== b.x && a.y !== b.y) return;
+      if (findBlockingComponents(a.x, a.y, b.x, b.y, excludeComps).length) return;
+      score += Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+    }
+    if (lane && points[0].y === points[1].y &&
+        (points[0].y === y1 || points[0].y === y2)) {
+      score += 900;
+    }
+    if (score < bestScore) {
+      bestScore = score;
+      best = points;
+    }
+  });
+  return best;
+}
+
 function getPinStub(pin, comp, stubLen) {
   /* Give every automatic wire a clear straight exit before turning. */
   stubLen = stubLen || 34;
@@ -313,6 +510,32 @@ function simplifyWirePath(points) {
       cleaned.push(point);
     }
   });
+
+  // Guarantee that every neighboring pair remains horizontal or vertical.
+  // This also repairs older saved routes that contain diagonal jumps.
+  var orthogonal = [];
+  cleaned.forEach(function(point) {
+    var previous = orthogonal[orthogonal.length - 1];
+    if (previous && previous.x !== point.x && previous.y !== point.y) {
+      orthogonal.push({ x: point.x, y: previous.y });
+    }
+    orthogonal.push(point);
+  });
+  cleaned = orthogonal;
+
+  // Grid links very close to a pin can create tiny staircase jogs. Remove a
+  // pair of short segments together so they become one clean corner.
+  for (var j = cleaned.length - 3; j > 0; j--) {
+    var p0 = cleaned[j - 1];
+    var p1 = cleaned[j];
+    var p2 = cleaned[j + 1];
+    var p3 = cleaned[j + 2];
+    var firstLength = Math.abs(p1.x - p0.x) + Math.abs(p1.y - p0.y);
+    var secondLength = Math.abs(p2.x - p1.x) + Math.abs(p2.y - p1.y);
+    if (firstLength <= 8 && secondLength <= 8) {
+      cleaned.splice(j, 2);
+    }
+  }
 
   for (var i = cleaned.length - 2; i > 0; i--) {
     var before = cleaned[i - 1];
@@ -388,14 +611,33 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
     stub2.y += laneOffset;
   }
 
-  var blocked = computeAutoWaypoints(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, stagger, lane);
-
-  var middle;
-  // Give nearby wires their own lanes instead of stacking them on one line.
   var startIsHorizontal = startPin.side === 'left' || startPin.side === 'right';
   var endIsHorizontal = endPin.side === 'left' || endPin.side === 'right';
   var isBottomFanout = (startIsHorizontal && endPin.side === 'bottom') ||
     (endIsHorizontal && startPin.side === 'bottom');
+
+  // Clean automatic routing path. This is intentionally the single route
+  // source for new automatic wires; the older fan-out and midpoint branches
+  // below remain only as a fallback if the grid search cannot find a path.
+  // The rebuilt automatic router has one source of truth: the orthogonal
+  // grid search. It handles every pin direction consistently.
+  var cleanRoute = computeGridOrthogonalRoute(
+    stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, startPin, endPin
+  );
+  if (cleanRoute && cleanRoute.length) {
+    var cleanWaypoints = [];
+    if (rawStub1.x !== startPin.x || rawStub1.y !== startPin.y) cleanWaypoints.push(rawStub1);
+    if (stub1.x !== rawStub1.x || stub1.y !== rawStub1.y) cleanWaypoints.push(stub1);
+    cleanWaypoints = cleanWaypoints.concat(cleanRoute);
+    if (stub2.x !== rawStub2.x || stub2.y !== rawStub2.y) cleanWaypoints.push(stub2);
+    if (rawStub2.x !== endPin.x || rawStub2.y !== endPin.y) cleanWaypoints.push(rawStub2);
+    return simplifyWirePath(cleanWaypoints);
+  }
+
+  var blocked = computeAutoWaypoints(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, stagger, lane);
+
+  var middle;
+  // Give nearby wires their own lanes instead of stacking them on one line.
   // Component avoidance takes priority over the fan-out layout. If the
   // direct route is blocked, use the obstacle detour instead of allowing a
   // decorative fan-out path to enter a sensor body.
@@ -422,9 +664,9 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
         var sensorBounds = endComp ? getComponentBounds(endComp) : null;
         var sensorCenterX = sensorBounds ? sensorBounds.left + sensorBounds.width / 2 : stub2.x;
         var outsideSensorX = sensorBounds
-          ? (stub1.x <= sensorCenterX ? sensorBounds.left - 28 : sensorBounds.right + 28)
+          ? (stub1.x <= sensorCenterX ? sensorBounds.left - 22 : sensorBounds.right + 22)
           : (stub1.x + stub2.x) / 2;
-        var bottomFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset + endPinFanout;
+        var bottomFanoutY = Math.max(stub1.y, stub2.y) + 24 + laneOffset + endPinFanout;
         // Rejoin the destination pin's own X column directly. The fan-out
         // row provides separation; an additional approach column creates a
         // box-shaped detour.
@@ -459,14 +701,19 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
       if (startPin.side === 'bottom') {
         // Sensor-to-board routes use the same dedicated fan-out area.
         var startPinFanout = getPinFanoutOffset(startPin, startComp);
-        var reverseFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset + startPinFanout;
-        var reverseApproachX = stub1.x;
+        var reverseFanoutY = Math.max(stub1.y, stub2.y) + 24 + laneOffset + startPinFanout;
+        var sourceBounds = startComp ? getComponentBounds(startComp) : null;
+        var sourceCenterX = sourceBounds ? sourceBounds.left + sourceBounds.width / 2 : stub1.x;
+        var reverseApproachX = sourceBounds
+          ? (stub2.x <= sourceCenterX ? sourceBounds.left - 22 : sourceBounds.right + 22)
+          : stub1.x;
         var reverseMiddle;
         for (var reverseTry = 0; reverseTry < 8; reverseTry++) {
           reverseMiddle = [
-            { x: stub1.x, y: reverseFanoutY },
+            { x: reverseApproachX, y: stub1.y },
             { x: reverseApproachX, y: reverseFanoutY },
-            { x: reverseApproachX, y: stub2.y }
+            { x: stub2.x, y: reverseFanoutY },
+            { x: stub2.x, y: stub2.y }
           ];
           var reverseRoute = [{ x: stub1.x, y: stub1.y }].concat(reverseMiddle).concat([{ x: stub2.x, y: stub2.y }]);
           if (!wirePathBlocked(reverseRoute, excludeComps) &&
@@ -496,7 +743,7 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   // Keep the dedicated bottom-pin fan-out route. The visibility route is
   // used for other connections, but must not overwrite this longer route.
   if (!isBottomFanout) {
-    var routedMiddle = computeVisibilityRoute(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, lane);
+    var routedMiddle = computeVisibilityRoute(stub1.x, stub1.y, stub2.x, stub2.y, excludeComps, lane, startPin, endPin);
     waypoints = [];
     if (rawStub1.x !== startPin.x || rawStub1.y !== startPin.y) waypoints.push(rawStub1);
     if (stub1.x !== rawStub1.x || stub1.y !== rawStub1.y) waypoints.push(stub1);
@@ -567,7 +814,10 @@ function rerouteAutomaticWires() {
     w.y1 = p1.y;
     w.x2 = p2.x;
     w.y2 = p2.y;
-    w.waypoints = buildWireWaypoints(p1, p2, [], 0, w.lane);
+    // Automatic routes are rebuilt from scratch. Do not carry old bends into
+    // the new calculation after a component moves.
+    w.waypoints = [];
+    w.waypoints = simplifyWirePath(buildWireWaypoints(p1, p2, [], 0, w.lane));
   });
 }
 
@@ -784,6 +1034,24 @@ function handleCanvasMouseMove(e) {
       // A manually placed bend becomes part of the user's chosen route.
       dragging.wire.autoRoute = false;
       var snappedWirePoint = snapWirePointToGrid({ x: mouseX, y: mouseY });
+      var wirePoints = [{ x: dragging.wire.x1, y: dragging.wire.y1 }]
+        .concat(dragging.wire.waypoints || [])
+        .concat([{ x: dragging.wire.x2, y: dragging.wire.y2 }]);
+      var pointIndex = dragging.wpIndex + 1;
+      var previousPoint = wirePoints[pointIndex - 1];
+      var nextPoint = wirePoints[pointIndex + 1];
+      var originalPoint = wirePoints[pointIndex];
+
+      // Preserve the bend's orientation while dragging. A corner whose
+      // incoming segment is vertical keeps its X; one whose incoming segment
+      // is horizontal keeps its Y. This prevents diagonal manual routes.
+      if (previousPoint && nextPoint) {
+        if (previousPoint.x === originalPoint.x) {
+          snappedWirePoint.x = originalPoint.x;
+        } else if (previousPoint.y === originalPoint.y) {
+          snappedWirePoint.y = originalPoint.y;
+        }
+      }
       dragging.wire.waypoints[dragging.wpIndex].x = snappedWirePoint.x;
       dragging.wire.waypoints[dragging.wpIndex].y = snappedWirePoint.y;
       syncWireEndpoints(dragging.wire);
