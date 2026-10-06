@@ -5,6 +5,7 @@
 
 if (!window.zoomLevel) window.zoomLevel = 1;
 var selectedWire = null;
+var WIRE_LANE_SPACING = 30;
 
 var _heldButton = null;
 var _touchState = {
@@ -157,7 +158,7 @@ function computeAutoWaypoints(x1, y1, x2, y2, excludeComps, stagger, lane) {
     if (!blocked.length) break;
 
     var rect = blocked[0];
-    var laneOffset = (lane || 0) * 18;
+    var laneOffset = (lane || 0) * WIRE_LANE_SPACING;
     var candidates = [
       { x: rect.left - margin - laneOffset, y: current.y },
       { x: rect.right + margin + laneOffset, y: current.y },
@@ -229,6 +230,36 @@ function getPinStub(pin, comp, stubLen) {
   return { x: pin.x, y: pin.y };
 }
 
+function getPinFanoutOffset(pin, comp) {
+  if (!comp || !comp.pins) return 0;
+  var index = comp.pins.indexOf(pin);
+  if (index < 0) return 0;
+  // Give pins on the same component distinct nearby fan-out rows without
+  // changing the pins themselves.
+  return (index - (comp.pins.length - 1) / 2) * 18;
+}
+
+function simplifyWirePath(points) {
+  var cleaned = [];
+  points.forEach(function(point) {
+    var previous = cleaned[cleaned.length - 1];
+    if (!previous || previous.x !== point.x || previous.y !== point.y) {
+      cleaned.push(point);
+    }
+  });
+
+  for (var i = cleaned.length - 2; i > 0; i--) {
+    var before = cleaned[i - 1];
+    var current = cleaned[i];
+    var after = cleaned[i + 1];
+    if ((before.x === current.x && current.x === after.x) ||
+        (before.y === current.y && current.y === after.y)) {
+      cleaned.splice(i, 1);
+    }
+  }
+  return cleaned;
+}
+
 function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   var startComp = findPinOwner(startPin);
   var endComp = findPinOwner(endPin);
@@ -236,7 +267,7 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   var stub2 = getPinStub(endPin, endComp);
   var rawStub1 = { x: stub1.x, y: stub1.y };
   var rawStub2 = { x: stub2.x, y: stub2.y };
-  var laneOffset = (lane || 0) * 18;
+  var laneOffset = (lane || 0) * WIRE_LANE_SPACING;
   var startMcu = startComp && (startComp.type === 'esp32' || startComp.type === 'pico');
   var endMcu = endComp && (endComp.type === 'esp32' || endComp.type === 'pico');
 
@@ -252,12 +283,15 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
 
   var middle;
   // Give nearby wires their own lanes instead of stacking them on one line.
-  var laneOffset = (lane || 0) * 18;
-  if (blocked.length > 0) {
+  var startIsHorizontal = startPin.side === 'left' || startPin.side === 'right';
+  var endIsHorizontal = endPin.side === 'left' || endPin.side === 'right';
+  var isBottomFanout = (startIsHorizontal && endPin.side === 'bottom') ||
+    (endIsHorizontal && startPin.side === 'bottom');
+  if (blocked.length > 0 && !isBottomFanout) {
     middle = blocked;
   } else {
-    var horiz1 = startPin.side === 'left' || startPin.side === 'right';
-    var horiz2 = endPin.side === 'left' || endPin.side === 'right';
+    var horiz1 = startIsHorizontal;
+    var horiz2 = endIsHorizontal;
 
     if (horiz1 && horiz2) {
       var midX = (stub1.x + stub2.x) / 2 + laneOffset;
@@ -267,10 +301,57 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
       middle = [{ x: stub1.x, y: midY }, { x: stub2.x, y: midY }];
     } else if (horiz1) {
       var mixedMidX1 = (stub1.x + stub2.x) / 2 + laneOffset;
-      middle = [{ x: mixedMidX1, y: stub1.y }, { x: mixedMidX1, y: stub2.y }];
+      var forwardCorridorY = stub1.y + (startMcu ? 0 : laneOffset);
+      middle = [];
+      if (endPin.side === 'bottom') {
+        // Bottom-facing sensor pins fan out below the component instead of
+        // sharing the target pin's horizontal line.
+        var endPinFanout = getPinFanoutOffset(endPin, endComp);
+        var bottomFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset +
+          endPinFanout;
+        // Rejoin the destination pin's own X column directly. The fan-out
+        // row provides separation; an additional approach column creates a
+        // box-shaped detour.
+        var bottomApproachX = stub2.x;
+        middle.push(
+          { x: mixedMidX1 + endPinFanout, y: stub1.y },
+          { x: mixedMidX1 + endPinFanout, y: bottomFanoutY },
+          { x: bottomApproachX, y: bottomFanoutY },
+          { x: bottomApproachX, y: stub2.y }
+        );
+      } else {
+      if (forwardCorridorY !== stub1.y) {
+        middle.push({ x: stub1.x, y: forwardCorridorY });
+      }
+      middle.push(
+        { x: mixedMidX1, y: forwardCorridorY },
+        { x: mixedMidX1, y: stub2.y }
+      );
+      }
     } else {
       var mixedMidX2 = (stub1.x + stub2.x) / 2 + laneOffset;
-      middle = [{ x: mixedMidX2, y: stub1.y }, { x: mixedMidX2, y: stub2.y }];
+      var reverseCorridorY = stub1.y + laneOffset;
+      middle = [];
+      if (startPin.side === 'bottom') {
+        // Sensor-to-board routes use the same dedicated fan-out area.
+        var startPinFanout = getPinFanoutOffset(startPin, startComp);
+        var reverseFanoutY = Math.max(stub1.y, stub2.y) + 36 + laneOffset +
+          startPinFanout;
+        var reverseApproachX = stub1.x;
+        middle.push(
+          { x: stub1.x, y: reverseFanoutY },
+          { x: reverseApproachX, y: reverseFanoutY },
+          { x: reverseApproachX, y: stub2.y }
+        );
+      } else {
+      if (reverseCorridorY !== stub1.y) {
+        middle.push({ x: stub1.x, y: reverseCorridorY });
+      }
+      middle.push(
+        { x: mixedMidX2, y: reverseCorridorY },
+        { x: mixedMidX2, y: stub2.y }
+      );
+      }
     }
   }
 
@@ -281,7 +362,7 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   if (stub2.x !== rawStub2.x || stub2.y !== rawStub2.y) waypoints.push(stub2);
   if (rawStub2.x !== endPin.x || rawStub2.y !== endPin.y) waypoints.push(rawStub2);
 
-  return waypoints;
+  return simplifyWirePath(waypoints);
 }
 
 function findComponent(mx, my) {
@@ -387,6 +468,18 @@ function hasWireBetweenPins(pinA, pinB) {
       (w.pin1Id === id2 && w.pin2Id === id1)
     );
   });
+}
+
+function getAvailableWireLane() {
+  var used = {};
+  wires.forEach(function(w) {
+    if (typeof w.lane === 'number') used[w.lane] = true;
+  });
+  var candidates = [0, -1, 1, -2, 2, -3, 3, -4, 4];
+  for (var i = 0; i < candidates.length; i++) {
+    if (!used[candidates[i]]) return candidates[i];
+  }
+  return wires.length;
 }
 
 function releaseHeldButton() {
@@ -949,9 +1042,9 @@ function handleCanvasMouseDown(e) {
 
     var startComp = findPinOwner(wireStart);
     var endComp = findPinOwner(pin);
-    // Use a stable lane across the whole canvas. Counting only wires attached
-    // to one component caused unrelated wires to reuse the same path.
-    var wireLane = (wires.length % 5) - 2;
+    // Give every automatic wire an unused lane so later wires do not reuse
+    // the same bend corridor after the first five connections.
+    var wireLane = getAvailableWireLane();
     var autoWaypoints = buildWireWaypoints(wireStart, pin, [], 0, wireLane);
 
     wires.push({
