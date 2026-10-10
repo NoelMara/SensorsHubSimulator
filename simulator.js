@@ -3285,6 +3285,10 @@ function stopCode() {
     }
   });
 
+  // Stop the Web Audio oscillator after resetting buzzer component state.
+  // Without this refresh, the UI stops but an already-running tone continues.
+  refreshBuzzerAudio();
+
   updateStatus('Stopped');
   if (typeof draw === 'function') draw();
 }
