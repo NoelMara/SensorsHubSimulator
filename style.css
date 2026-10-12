@@ -1299,8 +1299,8 @@ canvas {
   .btn.icon-only { width: 34px; padding: 0; }
   .seg .btn { min-height: 30px; padding: 5px 9px; }
   #code-buttons { gap: 8px; padding: 10px; }
-  #code-buttons .btn { flex: 1 1 0; justify-content: center; }
-  .code-clear-btn { margin-left: 0; flex-basis: 100%; }
+  #code-buttons .btn { flex: 1 1 0; min-width: 0; justify-content: center; }
+  .code-clear-btn { margin-left: 0; flex-basis: auto; }
 
   /* ── Layout ── */
   #main-container { flex-direction: column; position: relative; }

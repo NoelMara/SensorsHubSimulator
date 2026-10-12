@@ -549,6 +549,8 @@ function updateWireHandles(w) {
 }
 
 function drawWireControls(w) {
+  if (typeof showWireControls !== 'undefined' && !showWireControls) return;
+
   var col = w.color || '#4d9fff';
 
   [

@@ -104,7 +104,15 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge bend-badge">&#8618;</div>
           <div class="help-step-content">
             <div class="help-step-title">Bend wires around components</div>
-            <div class="help-step-desc">Drag a wire midpoint to add a bend and keep your layout readable. <strong>Double-click</strong> a bend point to remove it.</div>
+            <div class="help-step-desc">Drag a wire midpoint or diamond handle to add and move a bend freely on the grid. <strong>Double-click</strong> a bend point to remove it.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-badge">&#8869;</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Show or hide wire controls</div>
+            <div class="help-step-desc">Open the <strong>&#8943; More</strong> menu and choose <strong>&#8869; Show wire controls</strong> to show or hide bend diamonds, endpoint circles, and wire editing handles. This changes only the display.</div>
           </div>
         </div>
 
