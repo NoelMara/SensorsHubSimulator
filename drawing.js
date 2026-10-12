@@ -1014,14 +1014,6 @@ function drawPico(c) {
     ctx.fillStyle = '#f4e83a';
   });
 
-  ctx.save();
-  ctx.translate(x + 36, y + h / 2 + 12);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 12px JetBrains Mono, monospace';
-  ctx.fillText('Raspberry Pi Pico', 0, 0);
-  ctx.restore();
-
   var onboardLedOn = typeof pinValues !== 'undefined' && !!pinValues.GP25;
   ctx.fillStyle = '#c8ffd2';
   ctx.font = 'bold 8px JetBrains Mono, monospace';

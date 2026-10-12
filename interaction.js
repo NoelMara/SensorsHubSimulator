@@ -408,8 +408,39 @@ function wireCorridorBlocked(a, b, ignoreWire) {
 }
 
 function wirePathCollidesWithExisting(points, ignoreWire) {
+  function longCollinearOverlap(a, b, p, q) {
+    var aHorizontal = Math.abs(a.y - b.y) < 0.001;
+    var bHorizontal = Math.abs(p.y - q.y) < 0.001;
+    var aVertical = Math.abs(a.x - b.x) < 0.001;
+    var bVertical = Math.abs(p.x - q.x) < 0.001;
+    var overlap;
+    if (aHorizontal && bHorizontal && Math.abs(a.y - p.y) < 16) {
+      overlap = Math.min(Math.max(a.x, b.x), Math.max(p.x, q.x)) -
+        Math.max(Math.min(a.x, b.x), Math.min(p.x, q.x));
+      return overlap > 12;
+    }
+    if (aVertical && bVertical && Math.abs(a.x - p.x) < 16) {
+      overlap = Math.min(Math.max(a.y, b.y), Math.max(p.y, q.y)) -
+        Math.max(Math.min(a.y, b.y), Math.min(p.y, q.y));
+      return overlap > 12;
+    }
+    return false;
+  }
+
   for (var i = 0; i < points.length - 1; i++) {
-    if (wireCorridorBlocked(points[i], points[i + 1], ignoreWire)) return true;
+    var a = points[i];
+    var b = points[i + 1];
+    for (var wi = 0; wi < wires.length; wi++) {
+      var existing = wires[wi];
+      if (existing === ignoreWire) continue;
+      var existingPoints = [{ x: existing.x1, y: existing.y1 }]
+        .concat(existing.waypoints || [])
+        .concat([{ x: existing.x2, y: existing.y2 }]);
+      for (var si = 0; si < existingPoints.length - 1; si++) {
+        if (longCollinearOverlap(a, b, existingPoints[si], existingPoints[si + 1])) return true;
+      }
+    }
+    if (wireCorridorBlocked(a, b, ignoreWire)) return true;
   }
   return false;
 }
@@ -1011,6 +1042,8 @@ function rerouteAutomaticWires() {
 }
 
 function findWireInteractive(mx, my) {
+  if (typeof showWireControls !== 'undefined' && !showWireControls) return null;
+
   for (var wi = 0; wi < wires.length; wi++) {
     var w = wires[wi];
     var waypoints = w.waypoints || [];
@@ -1729,6 +1762,8 @@ function handleCanvasMouseLeave() {
 // ==========================================
 
 function handleCanvasDoubleClick(e) {
+  if (typeof showWireControls !== 'undefined' && !showWireControls) return;
+
   var pos = getCanvasXY(e);
   var x = pos.x;
   var y = pos.y;
