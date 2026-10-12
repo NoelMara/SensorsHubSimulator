@@ -1296,8 +1296,13 @@ function handleCanvasMouseMove(e) {
 
     syncAllWireEndpoints();
 
-    // Read-only future routes for the placement preview. These are not
-    // assigned to the real wires until the component is released.
+    // Use the same global multi-pass routing during the drag preview that is
+    // used after release. This keeps the dashed hint aligned with the route
+    // that will actually be committed.
+    if (typeof rerouteAutomaticWires === 'function') rerouteAutomaticWires();
+
+    // The routes above are already the same routes that will be committed on
+    // release; copy them for the dashed placement preview.
     dragging.wireGhosts = [];
     wires.forEach(function(w, wi) {
       if (w.autoRoute === false) return;
@@ -1313,9 +1318,9 @@ function handleCanvasMouseMove(e) {
       var p1 = findPinById(w.pin1Id);
       var p2 = findPinById(w.pin2Id);
       if (!p1 || !p2) return;
-      window._routingWire = w;
-      var futureWaypoints = simplifyWirePath(buildWireWaypoints(p1, p2, [], 0, w.lane));
-      window._routingWire = null;
+      var futureWaypoints = (w.waypoints || []).map(function(point) {
+        return { x: point.x, y: point.y };
+      });
       dragging.wireGhosts.push({
         points: [{ x: p1.x, y: p1.y }]
           .concat(futureWaypoints || [])
