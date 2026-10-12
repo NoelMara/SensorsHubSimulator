@@ -550,6 +550,7 @@ function updateWireHandles(w) {
 
 function drawWireControls(w) {
   if (typeof showWireControls !== 'undefined' && !showWireControls) return;
+  if (typeof dragging !== 'undefined' && dragging && dragging.componentMoved) return;
 
   var col = w.color || '#4d9fff';
 
