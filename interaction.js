@@ -14,6 +14,9 @@ function toggleWireControls() {
   if (button) {
     button.classList.toggle('active', showWireControls);
     button.setAttribute('aria-pressed', showWireControls ? 'true' : 'false');
+    button.textContent = showWireControls
+      ? '⟂ Hide wire controls'
+      : '⟂ Show wire controls';
   }
   updateStatus(showWireControls ? 'Wire controls visible' : 'Wire controls hidden');
   if (typeof draw === 'function') draw();
