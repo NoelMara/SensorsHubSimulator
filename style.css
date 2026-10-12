@@ -1282,6 +1282,12 @@ canvas {
       - var(--tab-bar-h)
       - env(safe-area-inset-bottom, 0px)
     );
+    height: calc(
+      100dvh
+      - var(--toolbar-h)
+      - var(--tab-bar-h)
+      - env(safe-area-inset-bottom, 0px)
+    );
   }
 
   /* ── Brand ── */
@@ -1318,6 +1324,7 @@ canvas {
     display: none;
   }
   #code-panel.mobile-active { display: flex; }
+  #code-buttons { flex-shrink: 0; }
 
   /* ── Sim panel ── */
   #sim-panel {
