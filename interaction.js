@@ -1021,11 +1021,19 @@ function syncAllWireEndpoints() {
   });
 }
 
-function rerouteAutomaticWires() {
+function rerouteAutomaticWires(onlyComp) {
   var automatic = wires.filter(function(w) { return w.autoRoute !== false; });
   automatic.forEach(function(w, wi) {
     if (typeof w.lane !== 'number') w.lane = (wi % 9) - 4;
   });
+
+  // When a component is passed in (while dragging it), only the wires attached
+  // to that component are re-routed. Every other wire keeps its current route.
+  if (onlyComp && onlyComp.pins) {
+    var ids = {};
+    onlyComp.pins.forEach(function(p) { ids[getPinId(p)] = true; });
+    automatic = automatic.filter(function(w) { return ids[w.pin1Id] || ids[w.pin2Id]; });
+  }
 
   // Route repeatedly. Each pass uses the previous pass as a wire-occupancy
   // map, so the result is no longer determined only by creation order.
@@ -1090,15 +1098,17 @@ function hasWireBetweenPins(pinA, pinB) {
 }
 
 function getAvailableWireLane() {
-  var used = {};
-  wires.forEach(function(w) {
-    if (typeof w.lane === 'number') used[w.lane] = true;
-  });
+  // Pick the least-used lane (preferring lanes near 0) so lanes are shared
+  // evenly instead of jumping to a huge offset after the first nine wires.
   var candidates = [0, -1, 1, -2, 2, -3, 3, -4, 4];
-  for (var i = 0; i < candidates.length; i++) {
-    if (!used[candidates[i]]) return candidates[i];
-  }
-  return wires.length;
+  var count = {};
+  candidates.forEach(function(c) { count[c] = 0; });
+  wires.forEach(function(w) {
+    if (typeof w.lane === 'number' && count[w.lane] !== undefined) count[w.lane]++;
+  });
+  var best = candidates[0];
+  candidates.forEach(function(c) { if (count[c] < count[best]) best = c; });
+  return best;
 }
 
 function releaseHeldButton() {
@@ -1316,7 +1326,7 @@ function handleCanvasMouseMove(e) {
     // Use the same global multi-pass routing during the drag preview that is
     // used after release. This keeps the dashed hint aligned with the route
     // that will actually be committed.
-    if (typeof rerouteAutomaticWires === 'function') rerouteAutomaticWires();
+    if (typeof rerouteAutomaticWires === 'function') rerouteAutomaticWires(dragging.comp);
 
     // The routes above are already the same routes that will be committed on
     // release; copy them for the dashed placement preview.
@@ -1342,6 +1352,7 @@ function handleCanvasMouseMove(e) {
         points: [{ x: p1.x, y: p1.y }]
           .concat(futureWaypoints || [])
           .concat([{ x: p2.x, y: p2.y }]),
+        wire: w,
         color: w.color || '#4d9fff'
       });
     });

@@ -497,7 +497,9 @@ function getWirePoints(w) {
 
 function drawWirePath(w) {
   var col = w.color || '#4d9fff';
-  var pts = getWirePoints(w);
+  // _renderPts comes from computeWireRenderPaths() (wireNudge.js): same route,
+  // but overlapping segments are spread into parallel tracks.
+  var pts = w._renderPts || getWirePoints(w);
 
   ctx.save();
   ctx.lineCap = 'round';
@@ -534,7 +536,7 @@ function drawWireGhost(points, color, opacity) {
 }
 
 function updateWireHandles(w) {
-  var pts = getWirePoints(w);
+  var pts = w._renderPts || getWirePoints(w);
   w._handles = [];
 
   for (var i = 0; i < pts.length - 1; i++) {
@@ -699,9 +701,17 @@ function draw() {
 
   wires.forEach(function(w) {
     if (typeof syncWireEndpoints === 'function') syncWireEndpoints(w);
-    updateWireHandles(w);
-    if (!w._previewWhileDragging) drawWirePath(w);
   });
+  // Spread overlapping wire segments apart (drawing only, routes unchanged).
+  if (typeof computeWireRenderPaths === 'function') computeWireRenderPaths(wires);
+  wires.forEach(function(w) {
+    updateWireHandles(w);
+    if (!w._previewWhileDragging && w !== selectedWire) drawWirePath(w);
+  });
+  // Selected wire is drawn last so it is never hidden underneath another wire.
+  if (selectedWire && wires.indexOf(selectedWire) !== -1 && !selectedWire._previewWhileDragging) {
+    drawWirePath(selectedWire);
+  }
 
   wires.forEach(function(w) {
     if (w._previewPoints) {
@@ -714,7 +724,10 @@ function draw() {
 
   if (typeof dragging !== 'undefined' && dragging && dragging.wireGhosts && dragging.wireGhosts.length) {
     dragging.wireGhosts.forEach(function(ghost) {
-      drawWireGhost(ghost.points, ghost.color || '#4d9fff', 0.38);
+      // Use the same spread-out points the placed wire will use, so the ghost
+      // matches the final position.
+      var ghostPts = (ghost.wire && ghost.wire._renderPts) || ghost.points;
+      drawWireGhost(ghostPts, ghost.color || '#4d9fff', 0.38);
     });
   }
 
