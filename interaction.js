@@ -723,6 +723,11 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   if (endMcu && (endPin.side === 'left' || endPin.side === 'right')) {
     stub2.y += getSidePinFanoutOffset(endPin, endComp) + laneOffset;
   }
+  // Bottom-facing sensor/module pins leave through a horizontal fan-out row.
+  // Give each automatic lane its own row so several connections from the
+  // same bottom edge cannot collapse onto one corridor.
+  if (startPin.side === 'bottom' && !startMcu) stub1.y += laneOffset;
+  if (endPin.side === 'bottom' && !endMcu) stub2.y += laneOffset;
 
   var route = computeGridOrthogonalRoute(
     stub1.x, stub1.y, stub2.x, stub2.y,
