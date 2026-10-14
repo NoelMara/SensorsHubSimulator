@@ -1116,8 +1116,10 @@ function clearDragging(resetCursor) {
   if (canvas && resetCursor) {
     canvas.style.cursor = 'crosshair';
   }
-  if (shouldCommit && typeof rerouteAutomaticWires === 'function') {
-    rerouteAutomaticWires();
+  if (shouldCommit) {
+    // The preview already contains the route calculated for the component's
+    // final drag position. Re-routing here can choose a different path from
+    // the ghost, making the wire jump when the mouse is released.
     if (typeof draw === 'function') draw();
   }
 }
@@ -1292,7 +1294,17 @@ function handleCanvasMouseMove(e) {
       });
     }
 
+    // Consume this incremental movement. Without updating the reference
+    // point, each mousemove reapplies the entire distance from drag start,
+    // making the component and its wire preview drift away from the cursor.
+    dragging.sx = mouseX;
+    dragging.sy = mouseY;
+
     dragging.componentMoved = true;
+
+    // Some component renderers calculate their final pin tips from the
+    // component position. Update those tips before routing the preview.
+    if (typeof drawAllComponents === 'function') drawAllComponents();
 
     syncAllWireEndpoints();
 
@@ -1328,19 +1340,6 @@ function handleCanvasMouseMove(e) {
         color: w.color || '#4d9fff'
       });
     });
-
-    // Keep the last drag details available for console diagnostics after the
-    // mouse is released, since the console cannot be inspected mid-drag.
-    window._lastWireDragDebug = {
-      component: dragging.comp.type,
-      realWires: wires.length,
-      autoRouteWires: wires.filter(function(w) { return w.autoRoute !== false; }).length,
-      ghostWires: dragging.wireGhosts.length,
-      ghostPointCounts: dragging.wireGhosts.map(function(g) { return g.points.length; }),
-      ghostRoutes: dragging.wireGhosts.map(function(g) {
-        return g.points.map(function(p) { return { x: Math.round(p.x), y: Math.round(p.y) }; });
-      })
-    };
 
     // Keep the existing route stable while dragging. Re-routing every mouse
     // move creates a second-looking ghost wire and makes the connection feel
