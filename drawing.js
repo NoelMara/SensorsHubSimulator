@@ -657,6 +657,15 @@ function drawDragPlacementCue() {
 function draw() {
   if (!ctx || !canvas) return;
 
+  // Preview flags are temporary drag state. Clear stale flags after reload
+  // so handles cannot remain visible while the solid wire is hidden.
+  if (typeof dragging === 'undefined' || !dragging) {
+    wires.forEach(function(w) {
+      delete w._previewWhileDragging;
+      delete w._previewPoints;
+    });
+  }
+
   // Recalculate automatic wires once on page load. Manual routes are ignored
   // by rerouteAutomaticWires().
   if (!window._wireRoutingUpdated && typeof rerouteAutomaticWires === 'function') {
