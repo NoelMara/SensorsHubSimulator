@@ -1126,6 +1126,7 @@ function clearDragging(resetCursor) {
     delete w._dragGhost;
     delete w._previewWhileDragging;
     delete w._previewPoints;
+    delete w._rankedForDrag;
   });
   dragging = null;
   if (canvas && resetCursor) {
@@ -1341,6 +1342,13 @@ function handleCanvasMouseMove(e) {
       // The dashed future route replaces the old solid route while moving;
       // drawing both makes one connection look like two overlapping wires.
       w._previewWhileDragging = true;
+      // Wires of the component being moved are placed last by the overlap
+      // spreader, so wires that are not moving keep their exact position.
+      if (!w._rankedForDrag) {
+        w._rankedForDrag = true;
+        window._wireNudgeRankCounter = (window._wireNudgeRankCounter || 0) + 1;
+        w._nudgeRank = window._wireNudgeRankCounter;
+      }
       if (typeof w.lane !== 'number') w.lane = (wi % 5) - 2;
       var p1 = findPinById(w.pin1Id);
       var p2 = findPinById(w.pin2Id);
