@@ -540,6 +540,7 @@ function updateWireHandles(w) {
   w._handles = [];
 
   for (var i = 0; i < pts.length - 1; i++) {
+    if (Math.abs(pts[i].x - pts[i + 1].x) < 0.5 && Math.abs(pts[i].y - pts[i + 1].y) < 0.5) continue;
     /* Automatic pin stubs should stay visually clean and non-interactive. */
     if (w.autoRoute !== false && (i === 0 || i === pts.length - 2)) continue;
     w._handles.push({
@@ -569,12 +570,18 @@ function drawWireControls(w) {
     ctx.stroke();
   });
 
-  (w.waypoints || []).forEach(function(wp) {
+  var renderPts = w._renderPts || getWirePoints(w);
+  (w.waypoints || []).forEach(function(wp, wi) {
+    var renderWp = renderPts[wi + 1] || wp;
+    var prev = renderPts[wi] || renderWp;
+    var next = renderPts[wi + 2] || renderWp;
+    if ((Math.abs(renderWp.x - prev.x) < 0.5 && Math.abs(renderWp.y - prev.y) < 0.5) &&
+        (Math.abs(next.x - renderWp.x) < 0.5 && Math.abs(next.y - renderWp.y) < 0.5)) return;
     ctx.fillStyle = 'rgba(255,255,255,0.86)';
     ctx.strokeStyle = col;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(wp.x, wp.y, 3.5, 0, Math.PI * 2);
+    ctx.arc(renderWp.x, renderWp.y, 3.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
   });

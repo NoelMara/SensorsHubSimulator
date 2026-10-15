@@ -23,6 +23,23 @@ function computeWireRenderPaths(wireList) {
   var placed = [];  // already-placed interior segments of earlier wires
   var minGap = WIRE_NUDGE_SPACING - 0.5;
 
+  // During waypoint dragging, preserve the other wires exactly as they were
+  // rendered and still treat their corridors as occupied by the edited wire.
+  wireList.forEach(function(w) {
+    if (!w._dragLockedRenderPts) return;
+    var locked = w._dragLockedRenderPts;
+    for (var li = 1; li <= locked.length - 3; li++) {
+      var la = locked[li], lb = locked[li + 1];
+      if (Math.abs(la.y - lb.y) < 0.5 && Math.abs(la.x - lb.x) >= 0.5) {
+        placed.push({ owner: w, horiz: true, coord: la.y,
+          lo: Math.min(la.x, lb.x), hi: Math.max(la.x, lb.x) });
+      } else if (Math.abs(la.x - lb.x) < 0.5 && Math.abs(la.y - lb.y) >= 0.5) {
+        placed.push({ owner: w, horiz: false, coord: la.x,
+          lo: Math.min(la.y, lb.y), hi: Math.max(la.y, lb.y) });
+      }
+    }
+  });
+
   function conflicts(horiz, coord, lo, hi, owner) {
     for (var k = 0; k < placed.length; k++) {
       var p = placed[k];
@@ -35,6 +52,11 @@ function computeWireRenderPaths(wireList) {
 
   order.forEach(function(entry) {
     var w = entry.w;
+    if (w._dragLockedRenderPts && w._dragLockedRenderPts.length) {
+      w._renderPts = w._dragLockedRenderPts.map(function(p) { return { x: p.x, y: p.y }; });
+      w._nudgePlaced = true;
+      return;
+    }
     var pts = wireNudgeRawPoints(w).map(function(p) { return { x: p.x, y: p.y }; });
 
     // Interior segments only: the first and last segment touch the pins.

@@ -1110,13 +1110,19 @@ function findWireInteractive(mx, my) {
   for (var wi = 0; wi < wires.length; wi++) {
     var w = wires[wi];
     var waypoints = w.waypoints || [];
+    var renderPoints = w._renderPts || [{ x: w.x1, y: w.y1 }].concat(waypoints).concat([{ x: w.x2, y: w.y2 }]);
 
     for (var wpi = 0; wpi < waypoints.length; wpi++) {
       var wp = waypoints[wpi];
-      var dx = mx - wp.x;
-      var dy = my - wp.y;
+      var renderWp = renderPoints[wpi + 1] || wp;
+      var prev = renderPoints[wpi] || renderWp;
+      var next = renderPoints[wpi + 2] || renderWp;
+      if ((Math.abs(renderWp.x - prev.x) < 0.5 && Math.abs(renderWp.y - prev.y) < 0.5) &&
+          (Math.abs(next.x - renderWp.x) < 0.5 && Math.abs(next.y - renderWp.y) < 0.5)) continue;
+      var dx = mx - renderWp.x;
+      var dy = my - renderWp.y;
       if (dx * dx + dy * dy < 64) {
-        return { wire: w, type: 'waypoint', wpIndex: wpi };
+        return { wire: w, type: 'waypoint', wpIndex: wpi, renderX: renderWp.x, renderY: renderWp.y };
       }
     }
 
@@ -1177,6 +1183,7 @@ function clearDragging(resetCursor) {
     delete w._previewWhileDragging;
     delete w._previewPoints;
     delete w._rankedForDrag;
+    delete w._dragLockedRenderPts;
   });
   dragging = null;
   if (canvas && resetCursor) {
@@ -1333,7 +1340,10 @@ function handleCanvasMouseMove(e) {
     if (dragging.type === 'wire-waypoint') {
       // A manually placed bend becomes part of the user's chosen route.
       dragging.wire.autoRoute = false;
-      var snappedWirePoint = snapWirePointToGrid({ x: mouseX, y: mouseY });
+      var snappedWirePoint = snapWirePointToGrid({
+        x: mouseX + (dragging.renderOffsetX || 0),
+        y: mouseY + (dragging.renderOffsetY || 0)
+      });
       var wirePoints = [{ x: dragging.wire.x1, y: dragging.wire.y1 }]
         .concat(dragging.wire.waypoints || [])
         .concat([{ x: dragging.wire.x2, y: dragging.wire.y2 }]);
@@ -1643,7 +1653,20 @@ function handleCanvasMouseDown(e) {
       if (wireColorPicker) wireColorPicker.value = selectedWire.color || getDefaultWireColor(selectedWire);
       if (wireHit.type === 'waypoint') {
         saveState();
-        dragging = { type: 'wire-waypoint', wire: wireHit.wire, wpIndex: wireHit.wpIndex };
+        if (typeof computeWireRenderPaths === 'function') computeWireRenderPaths(wires);
+        wires.forEach(function(w) {
+          if (w !== wireHit.wire && w._renderPts) {
+            w._dragLockedRenderPts = w._renderPts.map(function(p) { return { x: p.x, y: p.y }; });
+          }
+        });
+        var logicalWp = wireHit.wire.waypoints[wireHit.wpIndex];
+        dragging = {
+          type: 'wire-waypoint',
+          wire: wireHit.wire,
+          wpIndex: wireHit.wpIndex,
+          renderOffsetX: logicalWp.x - wireHit.renderX,
+          renderOffsetY: logicalWp.y - wireHit.renderY
+        };
         canvas.style.cursor = 'grabbing';
         return;
       }
@@ -1653,7 +1676,7 @@ function handleCanvasMouseDown(e) {
         var w = wireHit.wire;
         if (!w.waypoints) w.waypoints = [];
 
-        var pts = [{ x: w.x1, y: w.y1 }].concat(w.waypoints).concat([{ x: w.x2, y: w.y2 }]);
+        var pts = w._renderPts || [{ x: w.x1, y: w.y1 }].concat(w.waypoints).concat([{ x: w.x2, y: w.y2 }]);
         var seg = wireHit.segIndex;
         var newWp = {
           x: (pts[seg].x + pts[seg + 1].x) / 2,
