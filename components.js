@@ -707,6 +707,25 @@ function createLDR(x, y) {
   return c;
 }
 
+function createSW420(x, y) {
+  var c = {
+    id: mkId(),
+    type: 'sw420',
+    x: x,
+    y: y,
+    width: 40,
+    height: 130,
+    pins: [],
+    state: { triggered: false }
+  };
+
+  c.pins.push({ name: 'DO',  x: x - 18, y: y + 38, side: 'bottom', type: 'gpio',  color: '#3ddc84' });
+  c.pins.push({ name: 'GND', x: x,      y: y + 38, side: 'bottom', type: 'gnd',   color: '#8b7355' });
+  c.pins.push({ name: 'VCC', x: x + 18, y: y + 38, side: 'bottom', type: 'power', color: '#ff5566' });
+
+  return c;
+}
+
 // INPUTS
 function createButton(x, y) {
   var c = {
@@ -766,25 +785,6 @@ function createKY004(x, y) {
   c.pins.push({name: 'VCC',x: x,y: y + 26,side: 'bottom',type: 'power',color: '#ff5566' });
   c.pins.push({name: 'GND',x: x + 18,y: y + 26,side: 'bottom',type: 'gnd',color: '#8b7355'});
  
-  return c;
-}
-
-function createSW420(x, y) {
-  var c = {
-    id: mkId(),
-    type: 'sw420',
-    x: x,
-    y: y,
-    width: 40,
-    height: 130,
-    pins: [],
-    state: { triggered: false }
-  };
-
-  c.pins.push({ name: 'DO',  x: x - 18, y: y + 38, side: 'bottom', type: 'gpio',  color: '#3ddc84' });
-  c.pins.push({ name: 'GND', x: x,      y: y + 38, side: 'bottom', type: 'gnd',   color: '#8b7355' });
-  c.pins.push({ name: 'VCC', x: x + 18, y: y + 38, side: 'bottom', type: 'power', color: '#ff5566' });
-
   return c;
 }
 

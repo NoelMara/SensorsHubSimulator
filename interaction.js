@@ -172,6 +172,56 @@ function resetSelectedWireRoute() {
   draw();
 }
 
+function getDefaultWireColor(w) {
+  var pin = w && findPinById(w.pin1Id);
+  if (!pin) return '#7aa2f7';
+  if (pin.type === 'power') return '#f7768e';
+  if (pin.type === 'gnd') return '#8b7355';
+  if (pin.type === 'uart') return '#7dcfff';
+  if (pin.type === 'gpio') return '#9ece6a';
+  return '#7aa2f7';
+}
+
+function setSelectedWireColor(color) {
+  if (!selectedWire || !/^#[0-9a-fA-F]{6}$/.test(color || '')) {
+    updateStatus('Select a wire first');
+    return;
+  }
+  saveState();
+  selectedWire.color = color;
+  updateStatus('Wire color changed');
+  if (typeof draw === 'function') draw();
+}
+
+function resetSelectedWireColor() {
+  if (!selectedWire) {
+    updateStatus('Select a wire first');
+    return;
+  }
+  saveState();
+  selectedWire.color = getDefaultWireColor(selectedWire);
+  var picker = document.getElementById('wire-color-picker');
+  if (picker) picker.value = selectedWire.color;
+  updateStatus('Wire color reset');
+  if (typeof draw === 'function') draw();
+}
+
+function selectWireConnectedToPin(pin) {
+  if (!pin) return null;
+  var pinId = getPinId(pin);
+  if (!pinId) return null;
+  for (var i = wires.length - 1; i >= 0; i--) {
+    var w = wires[i];
+    if (w.pin1Id === pinId || w.pin2Id === pinId) {
+      selectedWire = w;
+      var picker = document.getElementById('wire-color-picker');
+      if (picker) picker.value = w.color || getDefaultWireColor(w);
+      return w;
+    }
+  }
+  return null;
+}
+
 function showConnectionToast(message) {
   var toast = document.getElementById('connection-toast');
   if (!toast) return;
@@ -1589,6 +1639,8 @@ function handleCanvasMouseDown(e) {
     var wireHit = wirePinHit ? null : findWireInteractive(x, y);
     if (wireHit) {
       selectedWire = wireHit.wire;
+      var wireColorPicker = document.getElementById('wire-color-picker');
+      if (wireColorPicker) wireColorPicker.value = selectedWire.color || getDefaultWireColor(selectedWire);
       if (wireHit.type === 'waypoint') {
         saveState();
         dragging = { type: 'wire-waypoint', wire: wireHit.wire, wpIndex: wireHit.wpIndex };
@@ -1620,6 +1672,12 @@ function handleCanvasMouseDown(e) {
   }
 
   if (tool === 'move') {
+    var movePin = findPin(x, y);
+    if (movePin && selectWireConnectedToPin(movePin)) {
+      updateStatus('Wire selected: ' + movePin.name);
+      draw();
+      return;
+    }
     var comp = findComponent(x, y);
     if (comp) {
       saveState();
@@ -1704,6 +1762,7 @@ function handleCanvasMouseDown(e) {
     }
 
     if (!wireStart) {
+      selectWireConnectedToPin(pin);
       wireStart = pin;
       updateStatus('Start: ' + pin.name);
       draw();

@@ -133,6 +133,14 @@ window.HELP_MODAL_HTML = `
         </div>
 
         <div class="help-step">
+          <div class="help-step-badge">&#127912;</div>
+          <div class="help-step-content">
+            <div class="help-step-title">Change a wire color</div>
+            <div class="help-step-desc">Choose <strong>&#10021; Move</strong>, then click a wire waypoint or a connected pin to select that wire. Open the <strong>&#8943; More</strong> menu and choose <strong>Wire color</strong>. Use <strong>Reset wire color</strong> to restore the automatic default color.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
           <div class="help-step-badge">&#8617;</div>
           <div class="help-step-content">
             <div class="help-step-title">Undo and redo changes</div>
@@ -254,6 +262,10 @@ window.HELP_MODAL_HTML = `
             <div class="help-comp-top"><span class="help-comp-icon">&#128680;</span><strong>HW-201</strong></div>
             <span>Detects a nearby obstacle. Connect <code>VCC</code>, <code>GND</code>, and <code>OUT</code>. It reads <code>LOW</code> when an obstacle is detected and <code>HIGH</code> when clear. Click the sensor to toggle obstacle detection.</span>
           </div>
+          <div class="help-comp-card">
+            <div class="help-comp-top"><span class="help-comp-icon">&#128243;</span><strong>SW-420</strong></div>
+            <span>Detects shaking or vibration. Connect <code>VCC</code>, <code>GND</code>, and digital output <code>DO</code>. Read <code>DO</code> with <code>digitalRead()</code>. It reads <code>HIGH</code> when vibration is detected and <code>LOW</code> when stable. Click the sensor body to toggle vibration.</span>
+          </div>
         </div>
 
         <div class="help-comp-section-title">Inputs</div>
@@ -269,10 +281,6 @@ window.HELP_MODAL_HTML = `
           <div class="help-comp-card">
             <div class="help-comp-top"><span class="help-comp-icon">&#127897;</span><strong>KY-004</strong></div>
             <span>A small push button module. Connect <code>VCC</code>, <code>GND</code>, and signal pin <code>S</code>. Read <code>S</code> with <code>digitalRead()</code>. It reads <code>LOW</code> when pressed and <code>HIGH</code> when released. Click the cap to toggle it.</span>
-          </div>
-          <div class="help-comp-card">
-            <div class="help-comp-top"><span class="help-comp-icon">&#128243;</span><strong>SW-420</strong></div>
-            <span>Detects shaking or vibration. Connect <code>VCC</code>, <code>GND</code>, and digital output <code>DO</code>. Read <code>DO</code> with <code>digitalRead()</code>. It reads <code>HIGH</code> when vibration is detected and <code>LOW</code> when stable. Click the sensor body to toggle vibration.</span>
           </div>
         </div>
 
