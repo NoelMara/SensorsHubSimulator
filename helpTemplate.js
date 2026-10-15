@@ -133,7 +133,7 @@ window.HELP_MODAL_HTML = `
         </div>
 
         <div class="help-step">
-          <div class="help-step-badge">&#127912;</div>
+          <div class="help-step-badge">&#9673;</div>
           <div class="help-step-content">
             <div class="help-step-title">Change a wire color</div>
             <div class="help-step-desc">Choose <strong>&#10021; Move</strong>, then click a wire waypoint or a connected pin to select that wire. Open the <strong>&#8943; More</strong> menu and choose <strong>Wire color</strong>. Use <strong>Reset wire color</strong> to restore the automatic default color.</div>
