@@ -632,17 +632,17 @@ function createUltrasonic(x, y) {
     type: 'ultrasonic',
     x: x,
     y: y,
-    width: 110,
-    height: 110,
+    width: 180,
+    height: 145,
     pins: [],
     state: { distance: 50 },
     _slider: { x: 0, y: 0, w: 80, h: 7, knobX: 0, knobY: 0, knobR: 10 }
   };
 
-  c.pins.push({ name: 'VCC',  x: x - 38, y: y - 18, side: 'left', type: 'power', color: '#ff5566' });
-  c.pins.push({ name: 'Trig', x: x - 38, y: y - 4,  side: 'left', type: 'gpio', color: '#3ddc84' });
-  c.pins.push({ name: 'Echo', x: x - 38, y: y + 10, side: 'left', type: 'gpio', color: '#3ddc84' });
-  c.pins.push({ name: 'GND',  x: x - 38, y: y + 24, side: 'left', type: 'gnd', color: '#8b7355' });
+  c.pins.push({ name: 'VCC',  x: x - 27, y: y + 40, side: 'bottom', type: 'power', color: '#ff5566' });
+  c.pins.push({ name: 'Trig', x: x - 9,  y: y + 40, side: 'bottom', type: 'gpio', color: '#3ddc84' });
+  c.pins.push({ name: 'Echo', x: x + 9,  y: y + 40, side: 'bottom', type: 'gpio', color: '#3ddc84' });
+  c.pins.push({ name: 'GND',  x: x + 27, y: y + 40, side: 'bottom', type: 'gnd', color: '#8b7355' });
 
   return c;
 }
@@ -796,7 +796,7 @@ function createFlame(x, y) {
     x: x,
     y: y,
     width: 56,
-    height: 105,
+    height: 120,
     pins: [],
     state: { detected: false, analog: 4095 },
     _slider: { x: 0, y: 0, w: 4, h: 50, knobX: 0, knobY: 0, knobR: 8 }

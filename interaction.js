@@ -1264,8 +1264,9 @@ function handleCanvasMouseMove(e) {
   if (dragging) {
     if (dragging.type === 'ultrasonic-slider') {
       var s = dragging.comp._slider;
-      var relX = Math.min(Math.max(mouseX - s.x, 0), s.w);
-      dragging.comp.state.distance = Math.round(relX / s.w * 398 + 2);
+      var relY = Math.min(Math.max(mouseY - s.y, 0), s.h);
+      var distanceNorm = 1 - (relY / s.h);
+      dragging.comp.state.distance = Math.round((distanceNorm * 398 + 2) * 10) / 10;
       draw();
       return;
     }

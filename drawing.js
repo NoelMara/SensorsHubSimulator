@@ -1212,79 +1212,126 @@ function drawLED(c) {
 // SENSORS
 // ==========================================
 function drawUltrasonic(c) {
-  var x = c.x, y = c.y, w = c.width, dist = (c.state.distance ?? 100);
+  var x = c.x, y = c.y, dist = (c.state.distance ?? 100);
+  var boardW = 120, boardH = 46;
+  var boardX = x - boardW / 2, boardY = y - 25;
 
-  ctx.fillStyle = '#1a2a3a';
-  ctx.fillRect(x - w / 2, y - 26, w, 54);
-  ctx.strokeStyle = '#2a4a6a';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x - w / 2, y - 26, w, 54);
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.28)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 3;
+  ctx.fillStyle = '#164b73';
+  if (ctx.roundRect) {
+    ctx.beginPath(); ctx.roundRect(boardX, boardY, boardW, boardH, 4); ctx.fill();
+  } else {
+    ctx.fillRect(boardX, boardY, boardW, boardH);
+  }
+  ctx.restore();
 
-  [[x - 20, y], [x + 20, y]].forEach(function(pt) {
-    ctx.fillStyle = '#222';
-    ctx.beginPath();
-    ctx.arc(pt[0], pt[1], 7, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.strokeStyle = '#2d78a6';
+  ctx.lineWidth = 1.5;
+  if (ctx.roundRect) {
+    ctx.beginPath(); ctx.roundRect(boardX, boardY, boardW, boardH, 4); ctx.stroke();
+  } else {
+    ctx.strokeRect(boardX, boardY, boardW, boardH);
+  }
 
-    ctx.fillStyle = '#444';
-    ctx.beginPath();
-    ctx.arc(pt[0], pt[1], 4, 0, Math.PI * 2);
-    ctx.fill();
+  // Four small mounting holes and a subtle PCB trace pattern make the board
+  // read as a real module rather than a plain blue rectangle.
+  [[boardX + 7, boardY + 7], [boardX + boardW - 7, boardY + 7],
+   [boardX + 7, boardY + boardH - 7], [boardX + boardW - 7, boardY + boardH - 7]]
+    .forEach(function(hole) {
+      ctx.fillStyle = '#0b2437';
+      ctx.beginPath(); ctx.arc(hole[0], hole[1], 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#6d9bb3';
+      ctx.lineWidth = 0.7;
+      ctx.stroke();
+    });
 
-    ctx.fillStyle = '#555';
-    ctx.beginPath();
-    ctx.arc(pt[0], pt[1], 2, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.strokeStyle = 'rgba(117,190,218,0.3)';
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(x - 43, y + 17); ctx.lineTo(x - 43, y + 23);
+  ctx.lineTo(x - 20, y + 23); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + 43, y + 17); ctx.lineTo(x + 43, y + 23);
+  ctx.lineTo(x + 20, y + 23); ctx.stroke();
+
+  // The real module has two large ultrasonic cans mounted side-by-side.
+  [[x - 25, y - 4], [x + 25, y - 4]].forEach(function(pt) {
+    ctx.fillStyle = '#18232d';
+    ctx.beginPath(); ctx.arc(pt[0], pt[1], 17, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#416174';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#0d141b';
+    ctx.beginPath(); ctx.arc(pt[0], pt[1], 12, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#526f7e';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#314653';
+    ctx.beginPath(); ctx.arc(pt[0], pt[1], 7, 0, Math.PI * 2); ctx.fill();
   });
 
-  ctx.fillStyle = '#22d3ee';
-  ctx.font = 'bold 8px JetBrains Mono, monospace';
+  ctx.fillStyle = '#b9eaff';
+  ctx.font = 'bold 7px JetBrains Mono, monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('HC-SR04', x, y - 22);
+  ctx.fillText('HC-SR04', x, boardY + boardH - 6);
 
-  ctx.fillStyle = '#3ddc84';
-  ctx.font = 'bold 9px JetBrains Mono, monospace';
-  ctx.fillText(dist.toFixed(1) + ' cm', x, y + 32);
+  // Four-pin header along the lower edge: VCC, TRIG, ECHO, GND.
+  var headerY = y + 40;
+  c.pins.forEach(function(p, i) {
+    p.x = x - 27 + i * 18;
+    p.y = headerY;
+    ctx.strokeStyle = '#b0b8c8';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(p.x, boardY + boardH);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p.x - 0.5, boardY + boardH);
+    ctx.lineTo(p.x - 0.5, p.y);
+    ctx.stroke();
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d5e2e8';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.fillStyle = '#b7c5cf';
+    ctx.font = 'bold 6px JetBrains Mono, monospace';
+    ctx.fillText(p.name === 'Trig' ? 'TRIG' : p.name === 'Echo' ? 'ECHO' : p.name, p.x, headerY + 12);
+  });
 
-  var sy = y + 40, sw = 80;
+  // Vertical distance slider on the right keeps the bottom pin area clear
+  // for wiring, matching the layout used by the other interactive sensors.
+  var slx = x + 74, slh = 46, sly = y - slh / 2;
   ctx.fillStyle = '#111';
-  ctx.fillRect(x - sw / 2, sy, sw, 7);
+  ctx.fillRect(slx, sly, 5, slh);
   ctx.strokeStyle = '#2a2a3a';
-  ctx.strokeRect(x - sw / 2, sy, sw, 7);
+  ctx.strokeRect(slx, sly, 5, slh);
 
   var sv = Math.min(Math.max((dist - 2) / 398, 0), 1);
-  var kx = x - sw / 2 + sv * sw;
-
+  var sky = sly + slh - sv * slh;
   ctx.fillStyle = '#ff6600';
-  ctx.beginPath();
-  ctx.arc(kx, sy + 3.5, 8, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(slx + 2.5, sky, 6, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = '#ffaa00';
   ctx.lineWidth = 2;
   ctx.stroke();
-
-  c._slider = { x: x - sw / 2, y: sy, w: sw, h: 7, knobX: kx, knobY: sy + 3.5, knobR: 10 };
+  c._slider = { x: slx, y: sly, w: 5, h: slh, knobX: slx + 2.5, knobY: sky, knobR: 8 };
 
   ctx.fillStyle = '#5a6080';
   ctx.font = '5px JetBrains Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('400cm', slx + 10, sly + 4);
+  ctx.fillText('2cm', slx + 10, sly + slh);
+  ctx.fillStyle = '#3ddc84';
+  ctx.font = 'bold 9px JetBrains Mono, monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('2cm', x - sw / 2 - 8, sy + 11);
-  ctx.fillText('400cm', x + sw / 2 + 10, sy + 11);
+  ctx.fillText(dist.toFixed(1) + ' cm', slx + 2.5, sly + slh + 18);
 
- c.pins.forEach(function(p, i) {
-    p.x = x - 38;
-    p.y = y - 18 + i * 14;
-
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#8890a8';
-    ctx.font = 'bold 8px JetBrains Mono, monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(p.name, p.x - 6, p.y + 3);
-  });
 }
 
 
