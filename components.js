@@ -435,6 +435,7 @@ function fixOffscreenComponents() {
 
   if (anyFixed) {
     updateWireEndpointsFromPins();
+    if (typeof rerouteAutomaticWires === 'function') rerouteAutomaticWires();
     if (typeof draw === 'function') draw();
   }
 
