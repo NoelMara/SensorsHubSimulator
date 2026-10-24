@@ -3438,29 +3438,42 @@ function drawBuzzer(c) {
 // OLED DISPLAY
 // ==========================================
 function drawSSD1306(c) {
-  // Expand older saved OLED components too, so their rendered text remains legible.
-  c.width = Math.max(c.width || 120, 180);
-  c.height = Math.max(c.height || 80, 120);
+  // Keep the module close to the real square 0.96-inch breakout-board shape.
+  c.width = Math.max(c.width || 150, 150);
+  c.height = Math.max(c.height || 150, 150);
   var x = c.x, y = c.y;
   var w = c.width;
   var h = c.height;
   var wired = typeof isComponentWired === 'function' ? isComponentWired(c) : true;
 
-  ctx.fillStyle = '#1a1a2e';
+  // Blue breakout PCB with a subtle edge and corner mounting holes.
+  ctx.fillStyle = '#123f68';
   ctx.fillRect(x - w / 2, y - h / 2, w, h);
-  ctx.strokeStyle = wired ? '#2a2a4e' : '#5a2a2a';
+  ctx.strokeStyle = wired ? '#2d79ad' : '#8a3434';
   ctx.lineWidth = 2;
   ctx.strokeRect(x - w / 2, y - h / 2, w, h);
 
-  var sw = Math.round(w * 0.84);
-  var sh = Math.round(sw / 2);
-  var sx = x - sw / 2;
-  var sy = y - sh / 2 - 2;
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function(corner) {
+    var hx = x + corner[0] * (w / 2 - 11);
+    var hy = y + corner[1] * (h / 2 - 11);
+    ctx.fillStyle = '#0b1725';
+    ctx.beginPath();
+    ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#78a7c7';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
 
-  ctx.fillStyle = wired ? '#0a1628' : '#1a0808';
+  var sw = Math.round(w * 0.78);
+  var sh = Math.round(sw * 0.56);
+  var sx = x - sw / 2;
+  var sy = y - sh / 2 - 4;
+
+  ctx.fillStyle = wired ? '#050b13' : '#1a0808';
   ctx.fillRect(sx, sy, sw, sh);
-  ctx.strokeStyle = wired ? '#1a3060' : '#4a1a1a';
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = wired ? '#071d31' : '#4a1a1a';
+  ctx.lineWidth = 2;
   ctx.strokeRect(sx, sy, sw, sh);
 
   if (wired) {
@@ -3493,18 +3506,18 @@ function drawSSD1306(c) {
     ctx.fillText('NO SIGNAL', x, y + 2);
   }
 
-  ctx.fillStyle = '#22d3ee';
-  ctx.font = 'bold 7px JetBrains Mono, monospace';
+  ctx.fillStyle = '#a9cce3';
+  ctx.font = 'bold 6px JetBrains Mono, monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SSD1306', x, y + h / 2 + 12);
+  ctx.fillText('0.96 OLED', x, y + h / 2 - 19);
 
-  ctx.fillStyle = '#5a6080';
+  ctx.fillStyle = '#7da3bd';
   ctx.font = '5px JetBrains Mono, monospace';
-  ctx.fillText('0.96" 128x64', x, y + h / 2 + 20);
+  ctx.fillText('128 x 64  I2C', x, y + h / 2 - 10);
 
   var pinLabels = ['GND', 'VCC', 'SCL', 'SDA'];
   c.pins.forEach(function(p, i) {
-    p.x = x - w * 0.38 + i * w * 0.25;
+    p.x = x - 45 + i * 30;
     p.y = y - h / 2;
 
     ctx.strokeStyle = p.color;
