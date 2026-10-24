@@ -1423,7 +1423,27 @@ canvas {
   }
   .help-header { padding: 16px 18px 14px; }
   .help-modal-logo { font-size: 18px; }
-  .help-tabs { padding: 10px 14px 0; gap: 2px; }
+  .help-tabs {
+    position: relative;
+    padding: 10px 14px 36px;
+    gap: 2px;
+  }
+  .help-tabs::after {
+    content: '←   SWIPE   →';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 24px;
+    color: var(--mode-color);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    pointer-events: none;
+  }
   .help-tab  { padding: 8px 11px 10px; font-size: 10px; }
   .help-body { padding: 18px 16px 6px; }
   .help-comp-grid { grid-template-columns: 1fr 1fr; }
