@@ -3073,6 +3073,7 @@ function runCode() {
     return;
   }
 
+  if (typeof hideConnAlert === 'function') hideConnAlert();
   running = true;
   resetMicroPythonRuntime();
 
