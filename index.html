@@ -485,6 +485,7 @@ function saveProjectFile() {
 }
 
 function applyLoadedMode(mode) {
+  if (typeof clearExecutionHighlight === 'function') clearExecutionHighlight();
   var isPy = mode === 'py';
   window.fileMode = isPy ? 'py' : 'ino';
   var thumb = document.getElementById('lang-toggle-thumb');
@@ -549,6 +550,38 @@ function showCodeError(line, message) {
 }
 
 function clearCodeError() {
+}
+
+var executionHighlightLine = null;
+
+function clearExecutionHighlight() {
+  if (!editor) {
+    executionHighlightLine = null;
+    return;
+  }
+  if (executionHighlightLine !== null) {
+    editor.removeLineClass(executionHighlightLine, 'background', 'cm-exec-line');
+    executionHighlightLine = null;
+  }
+}
+
+function updateExecutionHighlight(sourceLine) {
+  if (!editor || !Number.isInteger(sourceLine) || sourceLine < 0 || sourceLine >= editor.lineCount()) {
+    clearExecutionHighlight();
+    return;
+  }
+  // The parser may land on a blank line after converting Python code.
+  // Move forward to the next real source line instead of highlighting empty space.
+  while (sourceLine < editor.lineCount() && !editor.getLine(sourceLine).trim()) sourceLine++;
+  if (sourceLine >= editor.lineCount()) {
+    clearExecutionHighlight();
+    return;
+  }
+  if (executionHighlightLine === sourceLine) return;
+  clearExecutionHighlight();
+  editor.addLineClass(sourceLine, 'background', 'cm-exec-line');
+  executionHighlightLine = sourceLine;
+  editor.scrollIntoView({ line: sourceLine, ch: 0 }, 80);
 }
 
 function clearCodeEditor() {

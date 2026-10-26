@@ -13,6 +13,8 @@ let defines = {};
 let currentLineIndex = 0;
 let currentSetupLineIndex = 0;
 let inSetupPhase = false;
+let setupSourceLines = [];
+let loopSourceLines = [];
 let isDelayActive = false;
 let delayAdvance = 1;
 let delayPhase = 'loop';
@@ -1373,6 +1375,23 @@ function executeStructuredLines(sourceLines, phase, blockPath) {
   return executeStructuredLinesFrom(sourceLines, phase, 0, blockPath);
 }
 
+function updateStructuredExecutionHighlight(sourceLines, index, phase) {
+  if (typeof updateExecutionHighlight !== 'function') return;
+  const fullLines = phase === 'setup' ? setupLines : loopLines;
+  const sourceMap = phase === 'setup' ? setupSourceLines : loopSourceLines;
+  const target = String(sourceLines[index] || '').trim();
+  if (!target) return;
+
+  let fullIndex = fullLines.indexOf(sourceLines[index]);
+  if (fullIndex < 0) {
+    fullIndex = fullLines.findIndex(function(line, candidate) {
+      return candidate >= (phase === 'setup' ? currentSetupLineIndex : currentLineIndex) &&
+        String(line || '').trim() === target;
+    });
+  }
+  if (fullIndex >= 0) updateExecutionHighlight(sourceMap[fullIndex]);
+}
+
 function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
   for (let i = startIdx || 0; i < sourceLines.length;) {
     try {
@@ -1382,6 +1401,8 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
         i++;
         continue;
       }
+
+      updateStructuredExecutionHighlight(sourceLines, i, phase);
 
       if (l === 'return' || l.startsWith('return ') || l.startsWith('return;')) {
         return { nextIdx: i, returned: true };
@@ -1745,27 +1766,35 @@ function handleForBlock(startIdx, sourceLines, phase, blockPath) {
   return block.nextIdx - startIdx;
 }
 
-function unrollSimpleForBlocks(sourceLines) {
-  var out = [];
+function unrollSimpleForBlocks(sourceLines, sourceLineIndices) {
+  var outLines = [];
+  var outSourceLines = [];
 
   for (var i = 0; i < sourceLines.length;) {
     var l = String(sourceLines[i] || '').trim();
     var info = parseSimpleForHeader(l);
+    var srcLine = sourceLineIndices ? sourceLineIndices[i] : i;
 
     if (!info) {
-      out.push(sourceLines[i]);
+      outLines.push(sourceLines[i]);
+      if (sourceLineIndices) outSourceLines.push(srcLine);
       i++;
       continue;
     }
 
     var block = collectStructuredBlockBody(sourceLines, i);
-    var body = unrollSimpleForBlocks(block.bodyLines);
+    var bodySubSource = sourceLineIndices ? sourceLineIndices.slice(i + 1, block.nextIdx - 1) : null;
+    var unrolledBody = unrollSimpleForBlocks(block.bodyLines, bodySubSource);
+    var body = unrolledBody.lines || unrolledBody;
+    var bodySrc = unrolledBody.sourceLines || [];
     var maxIterations = 1000;
     var iterationCount = 0;
 
     for (var value = info.start; isForConditionTrue(value, info.op, info.end); value += info.step) {
-      out.push(info.varName + ' = ' + value + ';');
-      out.push.apply(out, body);
+      outLines.push(info.varName + ' = ' + value + ';');
+      if (sourceLineIndices) outSourceLines.push(srcLine);
+      outLines.push.apply(outLines, body);
+      if (sourceLineIndices) outSourceLines.push.apply(outSourceLines, bodySrc);
       iterationCount++;
 
       if (iterationCount >= maxIterations) break;
@@ -1774,7 +1803,10 @@ function unrollSimpleForBlocks(sourceLines) {
     i = block.nextIdx;
   }
 
-  return out;
+  if (sourceLineIndices) {
+    return { lines: outLines, sourceLines: outSourceLines };
+  }
+  return outLines;
 }
 
 function makeTryMarker(kind, id) {
@@ -1787,12 +1819,15 @@ function parseTryMarker(line) {
   return { kind: m[1], id: parseInt(m[2], 10) };
 }
 
-function flattenTryCatchBlocks(sourceLines) {
-  var out = [];
+function flattenTryCatchBlocks(sourceLines, sourceLineIndices) {
+  var outLines = [];
+  var outSourceLines = [];
 
   for (var i = 0; i < sourceLines.length;) {
+    var srcLine = sourceLineIndices ? sourceLineIndices[i] : i;
     if (!isTryStartLine(sourceLines[i])) {
-      out.push(sourceLines[i]);
+      outLines.push(sourceLines[i]);
+      if (sourceLineIndices) outSourceLines.push(srcLine);
       i++;
       continue;
     }
@@ -1801,9 +1836,16 @@ function flattenTryCatchBlocks(sourceLines) {
     var catchIdx = findNextExecutableLine(sourceLines, tryBlock.nextIdx);
 
     if (catchIdx >= sourceLines.length || !isCatchStartLine(sourceLines[catchIdx])) {
-      out.push(sourceLines[i]);
-      out.push.apply(out, flattenTryCatchBlocks(tryBlock.bodyLines));
-      out.push('}');
+      outLines.push(sourceLines[i]);
+      if (sourceLineIndices) outSourceLines.push(srcLine);
+
+      var trySubSource = sourceLineIndices ? sourceLineIndices.slice(i + 1, i + 1 + tryBlock.bodyLines.length) : null;
+      var flattenedTry = flattenTryCatchBlocks(tryBlock.bodyLines, trySubSource);
+      outLines.push.apply(outLines, flattenedTry.lines || flattenedTry);
+      if (sourceLineIndices) outSourceLines.push.apply(outSourceLines, flattenedTry.sourceLines || []);
+
+      outLines.push('}');
+      if (sourceLineIndices) outSourceLines.push(sourceLineIndices[tryBlock.nextIdx - 1]);
       i = tryBlock.nextIdx;
       continue;
     }
@@ -1811,17 +1853,34 @@ function flattenTryCatchBlocks(sourceLines) {
     var catchBlock = collectStructuredBlockBody(sourceLines, catchIdx);
     var id = nextRuntimeTryId++;
 
-    out.push(makeTryMarker('begin', id));
-    out.push.apply(out, flattenTryCatchBlocks(tryBlock.bodyLines));
-    out.push(makeTryMarker('end', id));
-    out.push(makeTryMarker('catch_begin', id));
-    out.push.apply(out, flattenTryCatchBlocks(catchBlock.bodyLines));
-    out.push(makeTryMarker('catch_end', id));
+    var trySubSource = sourceLineIndices ? sourceLineIndices.slice(i + 1, i + 1 + tryBlock.bodyLines.length) : null;
+    var catchSubSource = sourceLineIndices ? sourceLineIndices.slice(catchIdx + 1, catchIdx + 1 + catchBlock.bodyLines.length) : null;
+    var flattenedTry = flattenTryCatchBlocks(tryBlock.bodyLines, trySubSource);
+    var flattenedCatch = flattenTryCatchBlocks(catchBlock.bodyLines, catchSubSource);
+
+    outLines.push(makeTryMarker('begin', id));
+    if (sourceLineIndices) outSourceLines.push(srcLine);
+    outLines.push.apply(outLines, flattenedTry.lines || flattenedTry);
+    if (sourceLineIndices) outSourceLines.push.apply(outSourceLines, flattenedTry.sourceLines || []);
+
+    outLines.push(makeTryMarker('end', id));
+    if (sourceLineIndices) outSourceLines.push(srcLine);
+
+    outLines.push(makeTryMarker('catch_begin', id));
+    if (sourceLineIndices) outSourceLines.push(sourceLineIndices[catchIdx]);
+    outLines.push.apply(outLines, flattenedCatch.lines || flattenedCatch);
+    if (sourceLineIndices) outSourceLines.push.apply(outSourceLines, flattenedCatch.sourceLines || []);
+
+    outLines.push(makeTryMarker('catch_end', id));
+    if (sourceLineIndices) outSourceLines.push(sourceLineIndices[catchIdx]);
 
     i = catchBlock.nextIdx;
   }
 
-  return out;
+  if (sourceLineIndices) {
+    return { lines: outLines, sourceLines: outSourceLines };
+  }
+  return outLines;
 }
 
 function findTryMarkerIndex(sourceLines, kind, id, startIdx) {
@@ -2318,25 +2377,23 @@ function compilePythonPrint(argsText, state) {
 }
 
 function getPythonLines(code) {
-  return String(code || '')
-    .replace(/\r/g, '')
-    .split('\n')
-    .map(function(rawLine) {
-      return rawLine.replace(/\t/g, '    ').replace(/\s+#.*$/, '');
-    })
-    .reduce(function(list, rawLine) {
-      var trimmed = rawLine.trim();
-      if (!trimmed) return list;
-      if (trimmed.startsWith('#')) return list;
-      if (/^from\s+\S+\s+import\s+.+$/.test(trimmed)) return list;
-      if (/^import\s+.+$/.test(trimmed)) return list;
+  var rawLines = String(code || '').replace(/\r/g, '').split('\n');
+  var list = [];
+  for (var i = 0; i < rawLines.length; i++) {
+    var raw = rawLines[i].replace(/\t/g, '    ').replace(/\s+#.*$/, '');
+    var trimmed = raw.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('#')) continue;
+    if (/^from\s+\S+\s+import\s+.+$/.test(trimmed)) continue;
+    if (/^import\s+.+$/.test(trimmed)) continue;
 
-      list.push({
-        indent: rawLine.match(/^ */)[0].length,
-        text: trimmed
-      });
-      return list;
-    }, []);
+    list.push({
+      indent: raw.match(/^ */)[0].length,
+      text: trimmed,
+      line: i
+    });
+  }
+  return list;
 }
 
 function stripInlineCppComment(line) {
@@ -2376,7 +2433,8 @@ function rebasePythonLines(lines) {
   return lines.map(function(line) {
     return {
       indent: Math.max(0, line.indent - baseIndent),
-      text: line.text
+      text: line.text,
+      line: line.line
     };
   });
 }
@@ -2398,6 +2456,7 @@ function extractPythonFunctions(lines) {
     var bodyInfo = collectIndentedPythonBlock(lines, i + 1, line.indent);
     functions[defMatch[1]] = {
       name: defMatch[1],
+      line: line.line,
       args: splitCallArguments(defMatch[2]),
       body: rebasePythonLines(bodyInfo.block)
     };
@@ -2593,12 +2652,15 @@ function compilePythonIfChain(lines, state, indent, cursor, options) {
     if (first && !ifMatch) break;
     if (!first && !elifMatch && !elseMatch) break;
 
+    var lineNum = typeof line.line === 'number' ? line.line : null;
+    var lineTag = lineNum !== null ? ' // __SL:' + lineNum : '';
+
     if (ifMatch) {
-      out.push('if (' + translatePythonCondition(ifMatch[1], state) + ') {');
+      out.push('if (' + translatePythonCondition(ifMatch[1], state) + ') {' + lineTag);
     } else if (elifMatch) {
-      out.push('} else if (' + translatePythonCondition(elifMatch[1], state) + ') {');
+      out.push('} else if (' + translatePythonCondition(elifMatch[1], state) + ') {' + lineTag);
     } else {
-      out.push('} else {');
+      out.push('} else {' + lineTag);
     }
 
     first = false;
@@ -2626,7 +2688,9 @@ function compilePythonTryExcept(lines, state, indent, cursor, options) {
   var tryLine = lines[cursor.index];
   if (!tryLine || tryLine.indent !== indent || !/^try\s*:\s*$/.test(tryLine.text)) return out;
 
-  out.push('try {');
+  var tryLineNum = typeof tryLine.line === 'number' ? tryLine.line : null;
+  var tryTag = tryLineNum !== null ? ' // __SL:' + tryLineNum : '';
+  out.push('try {' + tryTag);
   cursor.index++;
 
   var tryIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
@@ -2638,10 +2702,12 @@ function compilePythonTryExcept(lines, state, indent, cursor, options) {
     return out;
   }
 
+  var exceptLineNum = typeof exceptLine.line === 'number' ? exceptLine.line : null;
+  var exceptTag = exceptLineNum !== null ? ' // __SL:' + exceptLineNum : '';
   var exceptMatch = exceptLine.text.match(/^except(?:\s+([\w.]+))?(?:\s+as\s+(\w+))?\s*:\s*$/);
   var exceptVarName = exceptMatch ? exceptMatch[2] : null;
 
-  out.push('} catch (...) {');
+  out.push('} catch (...) {' + exceptTag);
   cursor.index++;
 
   var exceptIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
@@ -2711,15 +2777,24 @@ function compilePythonWhileBlock(lines, state, indent, cursor, options) {
   var m = line && line.text.match(/^while\s+(.+)\s*:\s*$/i);
   if (!m) return [];
 
+  var lineNum = typeof line.line === 'number' ? line.line : null;
+  var tag = lineNum !== null ? ' // __SL:' + lineNum : '';
+
   cursor.index++;
   var childIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
   var body = compilePythonStatements(lines, state, childIndent, cursor, options);
-  return ['while (' + translatePythonCondition(m[1], state) + ') {'].concat(body).concat(['}']);
+  return ['while (' + translatePythonCondition(m[1], state) + ') {' + tag]
+    .concat(body)
+    .concat(['}']);
 }
 
 function compilePythonRangeFor(lines, state, indent, cursor, options) {
-  var loop = parsePythonRangeForLine(lines[cursor.index] && lines[cursor.index].text, state);
+  var line = lines[cursor.index];
+  var loop = parsePythonRangeForLine(line && line.text, state);
   if (!loop) return [];
+
+  var lineNum = typeof line.line === 'number' ? line.line : null;
+  var lineTag = lineNum !== null ? ' // __SL:' + lineNum : '';
 
   cursor.index++;
   var childIndent = cursor.index < lines.length ? lines[cursor.index].indent : indent + 4;
@@ -2733,7 +2808,7 @@ function compilePythonRangeFor(lines, state, indent, cursor, options) {
     loop.step > 0 ? value < loop.end : value > loop.end;
     value += loop.step
   ) {
-    out.push(loop.varName + ' = ' + value + ';');
+    out.push(loop.varName + ' = ' + value + ';' + lineTag);
     out.push.apply(out, body);
     iterationCount++;
 
@@ -2785,7 +2860,13 @@ function compilePythonStatements(lines, state, indent, cursor, options) {
 
     rememberPythonNumericAssignment(line.text, state);
     var translated = translatePythonStatement(line.text, state, options) || [];
-    out.push.apply(out, translated);
+    for (var ti = 0; ti < translated.length; ti++) {
+      var stmt = translated[ti];
+      if (typeof line.line === 'number' && !/\/\/\s*__SL:\d+/.test(stmt)) {
+        stmt = stmt.replace(/;\s*$/, '') + '; // __SL:' + line.line;
+      }
+      out.push(stmt);
+    }
     cursor.index++;
   }
 
@@ -3091,6 +3172,9 @@ function runCode() {
   loopLines = [];
   currentSetupLineIndex = 0;
   currentLineIndex = 0;
+  setupSourceLines = [];
+  loopSourceLines = [];
+  if (typeof clearExecutionHighlight === 'function') clearExecutionHighlight();
   inSetupPhase = false;
   isDelayActive = false;
   delayEndTime = 0;
@@ -3178,12 +3262,33 @@ function runCode() {
       if (vd) variables[vd[1]] = evaluateLiteral(vd[2]);
     }
 
-    if (inSetup) setupLines.push(l);
-    if (inLoop) loopLines.push(l);
+    let sourceLine = i;
+    const slMatch = raw.match(/\/\/\s*__SL:(\d+)/);
+    if (slMatch) {
+      sourceLine = parseInt(slMatch[1], 10);
+    } else if (runtimeMode === 'py') {
+      sourceLine = null;
+    }
+
+    if (inSetup) {
+      setupLines.push(l);
+      setupSourceLines.push(sourceLine);
+    }
+    if (inLoop) {
+      loopLines.push(l);
+      loopSourceLines.push(sourceLine);
+    }
   }
 
-  setupLines = flattenTryCatchBlocks(unrollSimpleForBlocks(setupLines));
-  loopLines = flattenTryCatchBlocks(unrollSimpleForBlocks(loopLines));
+  const unrolledSetup = unrollSimpleForBlocks(setupLines, setupSourceLines);
+  const flattenedSetup = flattenTryCatchBlocks(unrolledSetup.lines || unrolledSetup, unrolledSetup.sourceLines || setupSourceLines);
+  setupLines = flattenedSetup.lines || flattenedSetup;
+  setupSourceLines = flattenedSetup.sourceLines || setupSourceLines;
+
+  const unrolledLoop = unrollSimpleForBlocks(loopLines, loopSourceLines);
+  const flattenedLoop = flattenTryCatchBlocks(unrolledLoop.lines || unrolledLoop, unrolledLoop.sourceLines || loopSourceLines);
+  loopLines = flattenedLoop.lines || flattenedLoop;
+  loopSourceLines = flattenedLoop.sourceLines || loopSourceLines;
 
   inSetupPhase = setupLines.length > 0;
 
@@ -3262,6 +3367,41 @@ function tick() {
         if (typeof draw === 'function') draw();
       }
       return;
+    }
+
+    if (inSetupPhase) {
+      while (currentSetupLineIndex < setupLines.length) {
+        const checkL = String(setupLines[currentSetupLineIndex] || '').trim();
+        if (!checkL || checkL === '{' || checkL === '}' || checkL === '};' || checkL.startsWith('//')) {
+          currentSetupLineIndex++;
+          continue;
+        }
+        break;
+      }
+      if (currentSetupLineIndex >= setupLines.length) {
+        inSetupPhase = false;
+        currentLineIndex = 0;
+      }
+    }
+
+    if (!inSetupPhase) {
+      while (currentLineIndex < loopLines.length) {
+        const checkL = String(loopLines[currentLineIndex] || '').trim();
+        if (!checkL || checkL === '{' || checkL === '}' || checkL === '};' || checkL.startsWith('//')) {
+          currentLineIndex++;
+          continue;
+        }
+        break;
+      }
+      if (currentLineIndex >= loopLines.length) {
+        currentLineIndex = 0;
+        runtimeTryStack = [];
+        simulatorTryCatchDepth = 0;
+      }
+    }
+
+    if (typeof updateExecutionHighlight === 'function') {
+      updateExecutionHighlight(inSetupPhase ? setupSourceLines[currentSetupLineIndex] : loopSourceLines[currentLineIndex]);
     }
 
     if (inSetupPhase) {
@@ -3422,6 +3562,7 @@ function stopCode() {
     executionInterval = null;
   }
   isDelayActive = false;
+  if (typeof clearExecutionHighlight === 'function') clearExecutionHighlight();
   resetMicroPythonRuntime();
   if (typeof onSimulatorStop === 'function') onSimulatorStop();
 

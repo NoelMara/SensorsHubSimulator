@@ -570,6 +570,10 @@ html, body {
 .CodeMirror-cursor { border-left: 2px solid var(--mode-color) !important; transition: border-color 0.4s ease; }
 .CodeMirror-selected { background: var(--mode-color-dim) !important; }
 .CodeMirror-focused .CodeMirror-selected { background: rgba(var(--accent-rgb), 0.18) !important; }
+.CodeMirror .cm-exec-line {
+  background: rgba(255, 190, 70, 0.18) !important;
+  box-shadow: inset 3px 0 0 rgba(255, 190, 70, 0.95);
+}
 
 /* Syntax tokens */
 .cm-keyword  { color: #f97583 !important; }
