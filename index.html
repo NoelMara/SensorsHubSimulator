@@ -70,6 +70,9 @@
   <button class="btn" data-menu onclick="toggleMenu('menu-file', this)" title="Save / Load project">
     <span>📁</span><span class="btn-label">File ▾</span>
   </button>
+  <button class="btn" data-menu onclick="toggleMenu('menu-lessons', this)" title="Load a starter project">
+    <span>📘</span><span class="btn-label">Lessons ▾</span>
+  </button>
   <button class="btn icon-only" data-menu onclick="toggleMenu('menu-more', this)" title="More actions">
     <span>⋯</span>
   </button>
@@ -88,6 +91,11 @@
 <div class="menu-pop" id="menu-file">
   <button class="menu-item" onclick="closeMenus(); saveProjectFile()">💾 Save project</button>
   <button class="menu-item" onclick="closeMenus(); document.getElementById('project-file-input').click()">📂 Load project</button>
+</div>
+<div class="menu-pop" id="menu-lessons">
+  <button class="menu-item" onclick="closeMenus(); loadStarterLesson('blink')">💡 ESP32 LED Blink</button>
+  <button class="menu-item" onclick="closeMenus(); loadStarterLesson('dht')">🌡️ ESP32 DHT22 Serial</button>
+  <button class="menu-item" onclick="closeMenus(); loadStarterLesson('ultrasonic')">📡 ESP32 HC-SR04 Distance</button>
 </div>
 <div class="menu-pop" id="menu-more">
   <button class="menu-item" id="btn-wire-controls" onclick="toggleWireControls(); closeMenus()" aria-pressed="true">⟂ Hide wire controls</button>
@@ -275,6 +283,7 @@
 <script src="libraries/SSD1306.js"></script>
 <script src="libraries/Servo.js"></script>
 <script src="simulator.js"></script>
+<script src="lessons.js"></script>
 <script src="helpTemplate.js"></script>
 <script src="helpModal.js"></script>
 
@@ -692,20 +701,33 @@ function mobileTab(tab) {
    ============================================================ */
 function hideConnAlert() {
   var el = document.getElementById('conn-alert');
-  if (el) el.classList.add('hidden');
+  if (el) {
+    el.classList.add('hidden');
+    el.classList.remove('persistent');
+  }
+  if (_connAlertTimer) {
+    clearTimeout(_connAlertTimer);
+    _connAlertTimer = null;
+  }
 }
 
-function showConnAlert(msg) {
+function showConnAlert(msg, persist) {
   var el   = document.getElementById('conn-alert');
   var text = document.getElementById('conn-alert-text');
   if (!el || !text) return;
-  text.textContent = 'Warning: ' + msg;
+  var prefix = /^Cannot run:|^Error:/.test(String(msg || '')) ? '' : 'Warning: ';
+  text.textContent = prefix + msg;
   el.classList.remove('hidden');
+  el.classList.toggle('persistent', !!persist);
   if (_connAlertTimer) clearTimeout(_connAlertTimer);
-  _connAlertTimer = setTimeout(function() {
-    el.classList.add('hidden');
-    _connAlertTimer = null;
-  }, 5000);
+  _connAlertTimer = null;
+  if (!persist) {
+    _connAlertTimer = setTimeout(function() {
+      el.classList.add('hidden');
+      el.classList.remove('persistent');
+      _connAlertTimer = null;
+    }, 5000);
+  }
 }
 
 function showRuntimeError(msg) {
@@ -714,11 +736,15 @@ function showRuntimeError(msg) {
   if (!el || !text) return;
   text.textContent = 'Error: ' + msg;
   el.classList.remove('hidden');
-  if (_connAlertTimer) clearTimeout(_connAlertTimer);
-  _connAlertTimer = setTimeout(function() {
-    el.classList.add('hidden');
+  el.classList.add('persistent');
+  if (_connAlertTimer) {
+    clearTimeout(_connAlertTimer);
     _connAlertTimer = null;
-  }, 5000);
+  }
+}
+
+function onSimulatorStop() {
+  hideConnAlert();
 }
 
 /* ============================================================
@@ -790,6 +816,7 @@ function toggleRun() {
   if (typeof running !== 'undefined' && running) stopCode(); else runCode();
   syncRunBtn();
 }
+
 function syncRunBtn() {
   var btn = document.getElementById('btn-run');
   if (!btn) return;

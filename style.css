@@ -688,6 +688,7 @@ canvas {
   animation: alertPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 .conn-alert.hidden { display: none; }
+.conn-alert.persistent { border-color: rgba(255,160,90,0.55); }
 .conn-close {
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   cursor: pointer; color: inherit; opacity: 0.8; font-size: 14px;

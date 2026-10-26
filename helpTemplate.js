@@ -48,7 +48,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">3</div>
           <div class="help-step-content">
             <div class="help-step-title">Wire every required pin</div>
-            <div class="help-step-desc">Choose <strong>Wire</strong>, click one pin, then click the pin you want to connect it to. Connect every required pin, including power, ground, and signal pins. A <strong>NOT WIRED</strong> message means something is still missing.</div>
+            <div class="help-step-desc">Choose <strong>Wire</strong>, click one pin, then click the pin you want to connect it to. Connect every required pin, including power, ground, and signal pins. Run is blocked until those pins are connected. A persistent banner names the missing part and pin.</div>
           </div>
         </div>
 
@@ -77,7 +77,7 @@ window.HELP_MODAL_HTML = `
         </div>
 
         <div class="help-tip">
-          &#128161; <strong>Quick tip:</strong> To test the default blink sketch, place an <strong>ESP32</strong>, wire an LED <strong>+</strong> pin to <code>D2</code>, connect the LED <strong>-</strong> pin to <code>GND</code>, then press <strong>&#9654; Run</strong>.
+          &#128161; <strong>Quick tip:</strong> Open <strong>Lessons</strong> and choose <strong>ESP32 LED Blink</strong> to drop a wired starter project, or place an <strong>ESP32</strong>, wire an LED <strong>+</strong> pin to <code>D2</code>, connect the LED <strong>-</strong> pin to <code>GND</code>, then press <strong>&#9654; Run</strong>.
         </div>
       </div>
 
@@ -193,6 +193,14 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-content">
             <div class="help-step-title">Toggle the editor panel</div>
             <div class="help-step-desc">Click <strong>{ } Editor</strong> in the toolbar to collapse the code panel and free more canvas space. Click it again to bring the editor back. On mobile, use the bottom tab bar to switch between Studio and Code.</div>
+          </div>
+        </div>
+
+        <div class="help-step">
+          <div class="help-step-badge">&#10003;</div>
+          <div class="help-step-content">
+            <div class="help-step-title">What the simulator can run</div>
+            <div class="help-step-desc">Arduino: <code>setup()</code>/<code>loop()</code>, <code>#define</code>, <code>pinMode</code>, <code>digitalRead</code>/<code>digitalWrite</code>, <code>analogRead</code>, <code>delay</code>, <code>Serial</code>, <code>if</code>/<code>for</code>/<code>while</code>, and libraries <code>DHT</code>, <code>Wire</code>, <code>Adafruit_SSD1306</code>, and <code>Servo</code>. MicroPython: <code>machine.Pin</code>, <code>time.sleep</code>, <code>print</code>, <code>dht</code>, and <code>ssd1306</code>. Unknown <code>#include</code> or <code>import</code> lines stop Run with a clear error instead of being ignored.</div>
           </div>
         </div>
 
@@ -432,7 +440,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">B3</div>
           <div class="help-step-content">
             <div class="help-step-title">Wiring warnings are learning guides</div>
-            <div class="help-step-desc">If a matching component is placed but miswired, SensorsHub tries to show a helpful warning. If no matching component is placed at all, writing to that pin may stay silent, similar to real hardware where the board cannot know what is connected externally.</div>
+            <div class="help-step-desc">If a placed component is missing required pins, Run does not start and a banner stays on screen until you fix the wiring, press Stop, or dismiss it. If no matching component is placed at all, writing to that pin may stay silent, similar to real hardware where the board cannot know what is connected externally.</div>
           </div>
         </div>
 

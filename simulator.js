@@ -205,7 +205,87 @@ function checkCircuit() {
 }
 
 function getComponentLabel(comp) {
-  return comp && comp.label ? comp.label : (comp && comp.type ? comp.type.toUpperCase() : 'Component');
+  if (!comp) return 'Component';
+  if (comp.label) return comp.label;
+  if (comp.state && comp.state.label) return String(comp.state.label);
+  return comp.type ? String(comp.type).toUpperCase() : 'Component';
+}
+
+function getUnwiredRequiredComponents() {
+  return components.filter(function(comp) {
+    if (!comp || comp.type === 'esp32' || comp.type === 'pico') return false;
+    return REQUIRED_PINS[comp.type] && getMissingPins(comp).length > 0;
+  });
+}
+
+function getWiringBlockMessage() {
+  var incomplete = getUnwiredRequiredComponents();
+  if (!incomplete.length) return '';
+  var first = incomplete[0];
+  var missing = getMissingPins(first).join(', ');
+  var label = getComponentLabel(first);
+  if (incomplete.length === 1) {
+    return 'Cannot run: ' + label + ' is missing connections: ' + missing;
+  }
+  return 'Cannot run: ' + incomplete.length + ' components need wiring. ' + label + ' missing: ' + missing;
+}
+
+var ALLOWED_SKETCH_HEADERS = {
+  'arduino.h': true,
+  'dht.h': true,
+  'wire.h': true,
+  'servo.h': true,
+  'esp32servo.h': true,
+  'adafruit_ssd1306.h': true,
+  'adafruit_gfx.h': true,
+  'spi.h': true
+};
+
+var ALLOWED_PYTHON_MODULES = {
+  machine: true,
+  time: true,
+  utime: true,
+  dht: true,
+  ssd1306: true,
+  math: true,
+  sys: true,
+  gc: true,
+  micropython: true
+};
+
+function findUnsupportedIncludes(source) {
+  var unknown = [];
+  var seen = {};
+  String(source || '').split('\n').forEach(function(raw) {
+    var line = String(raw || '').trim();
+    var m = line.match(/^#include\s+[<"]([^>"]+)[>"]/);
+    if (!m) return;
+    if (typeof libraryRegistry !== 'undefined' && libraryRegistry.parseInclude(line)) return;
+    var header = m[1].split(/[/\\]/).pop().toLowerCase();
+    if (ALLOWED_SKETCH_HEADERS[header]) return;
+    if (seen[header]) return;
+    seen[header] = true;
+    unknown.push(m[1]);
+  });
+  return unknown;
+}
+
+function findUnsupportedPythonImports(source) {
+  var unknown = [];
+  var seen = {};
+  String(source || '').split('\n').forEach(function(raw) {
+    var line = String(raw || '').trim().replace(/\s+#.*$/, '');
+    var fromMatch = line.match(/^from\s+([A-Za-z_][\w.]*)\s+import\s+/);
+    var importMatch = line.match(/^import\s+([A-Za-z_][\w.]*)/);
+    var mod = fromMatch ? fromMatch[1] : (importMatch ? importMatch[1] : '');
+    if (!mod) return;
+    var root = mod.split('.')[0].toLowerCase();
+    if (ALLOWED_PYTHON_MODULES[root]) return;
+    if (seen[root]) return;
+    seen[root] = true;
+    unknown.push(mod);
+  });
+  return unknown;
 }
 
 function makeComponentWiringError(componentLabel, detail) {
@@ -1845,7 +1925,17 @@ function evaluateMath(expr) {
   return isNaN(n) ? null : n;
 }
 
+var simulatorFastMode = false;
+var testSerialLog = [];
+
 function serialWrite(msg, newLine) {
+  if (simulatorFastMode) {
+    if (newLine) testSerialLog.push(String(msg == null ? '' : msg));
+    else {
+      if (!testSerialLog.length) testSerialLog.push(String(msg == null ? '' : msg));
+      else testSerialLog[testSerialLog.length - 1] += String(msg == null ? '' : msg);
+    }
+  }
   if (typeof addSerialMessage === 'function') {
     addSerialMessage(msg, newLine);
   }
@@ -2752,7 +2842,7 @@ function validateMCULanguagePair() {
 
   if (mcus.length === 0) {
     if (typeof showConnAlert === 'function') {
-      showConnAlert('Place an ESP32 or Pico on the canvas first!');
+      showConnAlert('Place an ESP32 or Pico on the canvas first!', true);
     }
     updateStatus('No microcontroller placed');
     return false;
@@ -2760,7 +2850,7 @@ function validateMCULanguagePair() {
 
   if (mcus.length > 1) {
     if (typeof showConnAlert === 'function') {
-      showConnAlert('Use only one microcontroller at a time when running the simulator.');
+      showConnAlert('Use only one microcontroller at a time when running the simulator.', true);
     }
     updateStatus('Multiple microcontrollers detected');
     return false;
@@ -2770,7 +2860,7 @@ function validateMCULanguagePair() {
 
   if (mode === 'ino' && mcu !== 'esp32') {
     if (typeof showConnAlert === 'function') {
-      showConnAlert('Arduino (.ino) mode only works with ESP32. Switch board or change the editor mode.');
+      showConnAlert('Arduino (.ino) mode only works with ESP32. Switch board or change the editor mode.', true);
     }
     updateStatus('Wrong MCU for Arduino mode');
     return false;
@@ -2778,7 +2868,7 @@ function validateMCULanguagePair() {
 
   if (mode === 'py' && mcu !== 'pico') {
     if (typeof showConnAlert === 'function') {
-      showConnAlert('MicroPython (.py) mode only works with Pico. Switch board or change the editor mode.');
+      showConnAlert('MicroPython (.py) mode only works with Pico. Switch board or change the editor mode.', true);
     }
     updateStatus('Wrong MCU for MicroPython mode');
     return false;
@@ -2955,16 +3045,32 @@ function runCode() {
   }
   if (typeof clearCodeError === 'function') clearCodeError();
 
-  for (let i = 0; i < components.length; i++) {
-    const comp = components[i];
-    const mcuTypes = ['esp32', 'pico'];
-    if (mcuTypes.includes(comp.type)) continue;
-
-    if (!isComponentWired(comp)) {
-      const missing = getMissingPins(comp);
-      const msg = (comp.state.label || comp.type).toUpperCase() + ' is missing connections: ' + missing.join(', ');
-      if (typeof showConnAlert === 'function') showConnAlert(msg);
+  if (runtimeMode === 'ino') {
+    const unknownHeaders = findUnsupportedIncludes(sourceCode);
+    if (unknownHeaders.length) {
+      const msg = unknownHeaders[0] + ' is not simulated yet.';
+      if (typeof showConnAlert === 'function') showConnAlert(msg, true);
+      updateStatus('Library not simulated');
+      serialWrite('Error: ' + msg, true);
+      return;
     }
+  } else {
+    const unknownImports = findUnsupportedPythonImports(sourceCode);
+    if (unknownImports.length) {
+      const msg = 'import ' + unknownImports[0] + ' is not simulated yet.';
+      if (typeof showConnAlert === 'function') showConnAlert(msg, true);
+      updateStatus('Module not simulated');
+      serialWrite('Error: ' + msg, true);
+      return;
+    }
+  }
+
+  const wiringMsg = getWiringBlockMessage();
+  if (wiringMsg) {
+    if (typeof showConnAlert === 'function') showConnAlert(wiringMsg, true);
+    updateStatus('Wiring incomplete');
+    serialWrite('Error: ' + wiringMsg, true);
+    return;
   }
 
   running = true;
@@ -3081,7 +3187,46 @@ function runCode() {
   inSetupPhase = setupLines.length > 0;
 
   if (executionInterval) clearInterval(executionInterval);
-  executionInterval = setInterval(tick, 50);
+  if (!simulatorFastMode) {
+    executionInterval = setInterval(tick, 50);
+  }
+}
+
+function runSimulatorTicks(maxTicks) {
+  var limit = Math.max(1, parseInt(maxTicks, 10) || 200);
+  for (var i = 0; i < limit; i++) {
+    if (!running) break;
+    tick();
+  }
+}
+
+function runSimulatorForTest(options) {
+  options = options || {};
+  simulatorFastMode = true;
+  testSerialLog = [];
+  try {
+    if (options.code != null) {
+      window.fileMode = options.mode || 'ino';
+      if (typeof setEditorContent === 'function') {
+        setEditorContent(options.code);
+      } else {
+        var ta = document.getElementById('code-textarea');
+        if (ta) ta.value = options.code;
+      }
+    }
+    runCode();
+    if (running) runSimulatorTicks(options.ticks || 200);
+    var result = {
+      running: running,
+      serial: testSerialLog.slice(),
+      pinValues: Object.assign({}, pinValues),
+      variables: Object.assign({}, variables)
+    };
+    if (options.stop !== false && running) stopCode();
+    return result;
+  } finally {
+    simulatorFastMode = false;
+  }
 }
 
 // ==========================================
@@ -3091,6 +3236,10 @@ function runCode() {
 function tick() {
   try {
     if (!running) return;
+
+    if (isDelayActive && simulatorFastMode) {
+      delayEndTime = 0;
+    }
 
     if (isDelayActive) {
       if (Date.now() >= delayEndTime) {
@@ -3273,6 +3422,7 @@ function stopCode() {
   }
   isDelayActive = false;
   resetMicroPythonRuntime();
+  if (typeof onSimulatorStop === 'function') onSimulatorStop();
 
   components.forEach(function(comp) {
     if (comp.type === 'led') comp.state.on = false;
