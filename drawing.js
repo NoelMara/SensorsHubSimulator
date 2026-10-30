@@ -770,14 +770,12 @@ function draw() {
     // pin; this avoids the preview appearing to jump between route shapes.
     var cursorPoints = [{ x: wireStart.x, y: wireStart.y }, { x: mouseX, y: mouseY }];
     var previewPoints = null;
-    if (previewTarget && typeof buildWireWaypoints === 'function') {
-      // Preview the same lane that the next automatic wire will receive.
-      // Using lane 0 here made the hint differ from the connected wire.
-      var previewLane = typeof getAvailableWireLane === 'function'
-        ? getAvailableWireLane()
-        : 0;
+    if (previewTarget && typeof buildPreferredWireRoute === 'function') {
+      // Use exactly the same routing call as the wire that will be created,
+      // so the dashed hint cannot disagree with the finished wire.
+      var previewRoute = buildPreferredWireRoute(wireStart, previewTarget, null, 0);
       previewPoints = [{ x: wireStart.x, y: wireStart.y }]
-        .concat(buildWireWaypoints(wireStart, previewTarget, [], 0, previewLane))
+        .concat(previewRoute.waypoints)
         .concat([{ x: previewTarget.x, y: previewTarget.y }]);
     }
 

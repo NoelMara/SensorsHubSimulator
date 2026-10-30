@@ -1616,10 +1616,9 @@ function handleCanvasMouseMove(e) {
 
     syncAllWireEndpoints();
 
-    // Use the same global multi-pass routing during the drag preview that is
-    // used after release. This keeps the dashed hint aligned with the route
-    // that will actually be committed.
-    if (typeof rerouteAutomaticWires === 'function') rerouteAutomaticWires(dragging.comp);
+    // Use the same deterministic routing during the drag preview that runs
+    // after release, so the dashed hint sits exactly where the wire will land.
+    if (typeof rerouteAllAutomaticWires === 'function') rerouteAllAutomaticWires();
 
     // The routes above are already the same routes that will be committed on
     // release; copy them for the dashed placement preview.
@@ -1641,7 +1640,7 @@ function handleCanvasMouseMove(e) {
         window._wireNudgeRankCounter = (window._wireNudgeRankCounter || 0) + 1;
         w._nudgeRank = window._wireNudgeRankCounter;
       }
-      if (typeof w.lane !== 'number') w.lane = (wi % 5) - 2;
+      if (typeof w.lane !== 'number') w.lane = 0;
       var p1 = findPinById(w.pin1Id);
       var p2 = findPinById(w.pin2Id);
       if (!p1 || !p2) return;
