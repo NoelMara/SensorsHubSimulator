@@ -3398,8 +3398,12 @@ function runCode() {
     if (activeFunction) {
       const opensInFunction = (l.match(/\{/g) || []).length;
       const closesInFunction = (l.match(/\}/g) || []).length;
-      if (l !== '}' && l !== '};') userFunctions[activeFunction].push(l);
       functionBraceDepth += opensInFunction - closesInFunction;
+      // Keep inner closing braces so nested control-flow blocks remain valid.
+      // Only discard the helper function's own final closing brace.
+      if (functionBraceDepth > 0 || opensInFunction > closesInFunction) {
+        userFunctions[activeFunction].push(l);
+      }
       if (functionBraceDepth <= 0) activeFunction = null;
       continue;
     }
