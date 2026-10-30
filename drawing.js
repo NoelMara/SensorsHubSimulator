@@ -572,6 +572,8 @@ function updateWireHandles(w) {
 function drawWireControls(w) {
   if (typeof showWireControls !== 'undefined' && !showWireControls) return;
   if (typeof dragging !== 'undefined' && dragging && dragging.componentMoved) return;
+  // A wire hidden behind a drag preview must not leave markers on its old route.
+  if (w._previewWhileDragging) return;
 
   var col = w.color || '#4d9fff';
 
@@ -589,10 +591,15 @@ function drawWireControls(w) {
   });
 
   var renderPts = w._renderPts || getWirePoints(w);
-  (w.waypoints || []).forEach(function(wp, wi) {
-    var renderWp = renderPts[wi + 1] || wp;
-    var prev = renderPts[wi] || renderWp;
-    var next = renderPts[wi + 2] || renderWp;
+  var waypoints = w.waypoints || [];
+  // The spread-out render path normally has the same point count as the stored
+  // route. If it ever differs, fall back to the stored point instead of drawing
+  // the marker at a shifted index.
+  var aligned = renderPts.length === waypoints.length + 2;
+  waypoints.forEach(function(wp, wi) {
+    var renderWp = aligned ? (renderPts[wi + 1] || wp) : wp;
+    var prev = aligned ? (renderPts[wi] || renderWp) : renderWp;
+    var next = aligned ? (renderPts[wi + 2] || renderWp) : renderWp;
     if ((Math.abs(renderWp.x - prev.x) < 0.5 && Math.abs(renderWp.y - prev.y) < 0.5) &&
         (Math.abs(next.x - renderWp.x) < 0.5 && Math.abs(next.y - renderWp.y) < 0.5)) return;
     ctx.fillStyle = 'rgba(255,255,255,0.86)';
@@ -738,6 +745,13 @@ function draw() {
     drawWirePath(selectedWire);
   }
 
+  // Controls for unselected wires are drawn before the components, exactly
+  // like the wires themselves, so their markers cannot float over a part that
+  // hides the wire.
+  wires.forEach(function(w) {
+    if (w !== selectedWire) drawWireControls(w);
+  });
+
   wires.forEach(function(w) {
     if (w._previewPoints) {
       drawWireGhost(w._previewPoints, '#f0b35b', 0.9);
@@ -756,7 +770,7 @@ function draw() {
     });
   }
 
-  wires.forEach(drawWireControls);
+  if (selectedWire) drawWireControls(selectedWire);
 
   if (wireStart && tool === 'wire') {
     var previewTarget = null;
