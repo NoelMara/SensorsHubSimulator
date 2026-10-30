@@ -52,6 +52,24 @@ function snapWirePointToGrid(point) {
   };
 }
 
+// A bend is a step, not a single point. Dragging a segment sideways shifts that
+// segment and inserts the two corners that keep the wire orthogonal. A single
+// free-dragged point cannot express this, which is why it produced hooks.
+function shiftWireSegmentWaypoints(baseWaypoints, segIndex, horizontal, offset, a, b) {
+  var shiftedA = horizontal ? { x: a.x, y: a.y + offset } : { x: a.x + offset, y: a.y };
+  var shiftedB = horizontal ? { x: b.x, y: b.y + offset } : { x: b.x + offset, y: b.y };
+  var waypoints = (baseWaypoints || []).slice();
+
+  if (segIndex === 0) {
+    waypoints.splice(0, 0, shiftedA, shiftedB);
+  } else if (segIndex >= waypoints.length) {
+    waypoints.splice(waypoints.length - 1, 1, shiftedA, shiftedB);
+  } else {
+    waypoints.splice(segIndex - 1, 2, shiftedA, shiftedB);
+  }
+  return waypoints;
+}
+
 function findPin(mx, my) {
   var bestPin = null;
   var bestDist = Infinity;
@@ -170,6 +188,44 @@ function resetSelectedWireRoute() {
   syncWireEndpoints(selectedWire);
   updateStatus('Wire route reset');
   draw();
+}
+
+function resetAllWireRoutes() {
+  if (!wires.length) {
+    updateStatus('No wires to reset');
+    return;
+  }
+
+  saveState();
+  var allWires = wires;
+  try {
+    // Clear first so old, stale routes cannot push the new ones around.
+    allWires.forEach(function(w) { w.waypoints = []; });
+    wires = [];
+    allWires.forEach(function(w) {
+      var p1 = findPinById(w.pin1Id);
+      var p2 = findPinById(w.pin2Id);
+      if (!p1 || !p2) {
+        wires.push(w);
+        return;
+      }
+      w.autoRoute = true;
+      if (typeof w.lane !== 'number') w.lane = 0;
+      wires.push(w);
+      // Each wire avoids the wires already placed before it, in draw order.
+      window._routingWire = w;
+      var routedWire = buildPreferredWireRoute(p1, p2, w, 0);
+      w.waypoints = simplifyWirePath(routedWire.waypoints);
+      w.lane = routedWire.lane;
+      syncWireEndpoints(w);
+    });
+  } finally {
+    window._routingWire = null;
+    wires = allWires;
+  }
+
+  updateStatus('All wire routes reset');
+  if (typeof draw === 'function') draw();
 }
 
 function getDefaultWireColor(w) {
@@ -439,15 +495,9 @@ function wireCorridorBlocked(a, b, ignoreWire) {
     for (var si = 0; si < points.length - 1; si++) {
       var p = points[si];
       var q = points[si + 1];
-      // Do not let automatic routes cross existing routes. Shared endpoints
-      // are valid connections; every other crossing is treated as blocked.
-      var sharesEndpoint = (Math.abs(a.x - p.x) < 0.001 && Math.abs(a.y - p.y) < 0.001) ||
-        (Math.abs(a.x - q.x) < 0.001 && Math.abs(a.y - q.y) < 0.001) ||
-        (Math.abs(b.x - p.x) < 0.001 && Math.abs(b.y - p.y) < 0.001) ||
-        (Math.abs(b.x - q.x) < 0.001 && Math.abs(b.y - q.y) < 0.001);
-      if (!sharesEndpoint && segmentsIntersect(a.x, a.y, b.x, b.y, p.x, p.y, q.x, q.y)) {
-        return true;
-      }
+      // Perpendicular crossings are allowed. Real schematics cross wires, and
+      // blocking every crossing forced automatic routes into long loops. Only
+      // near-parallel overlap (wires running along each other) stays blocked.
       if (horizontal && Math.abs(p.y - q.y) < 0.001 && Math.abs(a.y - p.y) < clearance &&
           rangesOverlap(a.x, b.x, p.x, q.x)) return true;
       if (vertical && Math.abs(p.x - q.x) < 0.001 && Math.abs(a.x - p.x) < clearance &&
@@ -523,6 +573,39 @@ function computeGridOrthogonalRoute(x1, y1, x2, y2, excludeComps, startPin, endP
   var cameFrom = {};
   cameFrom[startKey] = null;
   var directions = [{ x: step, y: 0 }, { x: -step, y: 0 }, { x: 0, y: step }, { x: 0, y: -step }];
+
+  // Prefer clean, few-bend routes before searching the grid. BFS minimises
+  // grid hops, not corners, so ties often come back as staircases.
+  var laneOffset = (lane || 0) * WIRE_LANE_SPACING;
+  var horizontalFirst = startPin && (startPin.side === 'left' || startPin.side === 'right');
+  var cleanRoutes = [];
+  if (Math.abs(x1 - x2) < 0.001 || Math.abs(y1 - y2) < 0.001) {
+    cleanRoutes.push([{ x: x2, y: y2 }]);
+  } else {
+    var directH = [{ x: x2, y: y1 }, { x: x2, y: y2 }];
+    var directV = [{ x: x1, y: y2 }, { x: x2, y: y2 }];
+    var zHorizontal = [
+      { x: (x1 + x2) / 2 + laneOffset, y: y1 },
+      { x: (x1 + x2) / 2 + laneOffset, y: y2 },
+      { x: x2, y: y2 }
+    ];
+    var zVertical = [
+      { x: x1, y: (y1 + y2) / 2 + laneOffset },
+      { x: x2, y: (y1 + y2) / 2 + laneOffset },
+      { x: x2, y: y2 }
+    ];
+    cleanRoutes = horizontalFirst
+      ? [directH, directV, zHorizontal, zVertical]
+      : [directV, directH, zVertical, zHorizontal];
+  }
+
+  for (var cleanIndex = 0; cleanIndex < cleanRoutes.length; cleanIndex++) {
+    var cleanPath = [{ x: x1, y: y1 }].concat(cleanRoutes[cleanIndex]);
+    if (!wirePathBlocked(cleanPath, excludeComps) &&
+        !wirePathCollidesWithExisting(cleanPath, ignoreWire)) {
+      return cleanRoutes[cleanIndex];
+    }
+  }
 
   function validSegment(a, b) {
     var horizontal = Math.abs(a.y - b.y) < 0.001;
@@ -703,6 +786,18 @@ function simplifyWirePath(points) {
     }
   }
 
+  // Removing a short pair can also remove the corner that kept the path
+  // orthogonal, leaving a diagonal shortcut. Repair once more.
+  var repaired = [];
+  cleaned.forEach(function(point) {
+    var previous = repaired[repaired.length - 1];
+    if (previous && previous.x !== point.x && previous.y !== point.y) {
+      repaired.push({ x: point.x, y: previous.y });
+    }
+    repaired.push(point);
+  });
+  cleaned = repaired;
+
   for (var i = cleaned.length - 2; i > 0; i--) {
     var before = cleaned[i - 1];
     var current = cleaned[i];
@@ -758,7 +853,25 @@ function wirePathNearUnrelatedPin(points, startPin, endPin) {
   return false;
 }
 
+// Stable ordering so a wire looks the same no matter which end you started
+// dragging from.
+function wirePinSortBefore(a, b) {
+  if (Math.abs(a.x - b.x) > 0.001) return a.x < b.x;
+  if (Math.abs(a.y - b.y) > 0.001) return a.y < b.y;
+  return String(a.name || '') < String(b.name || '');
+}
+
 function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
+  // Route from a canonical pin order. Without this, starting a wire at the
+  // MCU and starting it at the component produced different shapes for the
+  // exact same two pins.
+  var reverseRoute = !wirePinSortBefore(startPin, endPin);
+  if (reverseRoute) {
+    var swapPin = startPin;
+    startPin = endPin;
+    endPin = swapPin;
+  }
+
   var startComp = findPinOwner(startPin);
   var endComp = findPinOwner(endPin);
   var stub1 = getPinStub(startPin, startComp);
@@ -823,7 +936,9 @@ function buildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
   }
   points.push({ x: getPinStub(endPin, endComp).x, y: getPinStub(endPin, endComp).y },
     { x: endPin.x, y: endPin.y });
-  return simplifyWirePath(points);
+  var resultPath = simplifyWirePath(points);
+  if (reverseRoute) resultPath.reverse();
+  return resultPath;
 }
 
 function legacyBuildWireWaypoints(startPin, endPin, excludeComps, stagger, lane) {
@@ -1071,10 +1186,53 @@ function syncAllWireEndpoints() {
   });
 }
 
+// Deterministic re-route used whenever the layout settles (drop a part, add or
+// delete a wire). Wires are routed in order against an empty occupancy map, so
+// the result matches "Reset all wire routes" instead of depending on whatever
+// routes were left over from previous edits.
+function rerouteAllAutomaticWires() {
+  var allWires = wires;
+  var automatic = allWires.filter(function(w) { return w.autoRoute !== false; });
+  if (!automatic.length) return;
+
+  try {
+    // Manually shaped wires stay put and act as obstacles.
+    wires = allWires.filter(function(w) { return w.autoRoute === false; });
+    automatic.forEach(function(w) {
+      var p1 = findPinById(w.pin1Id);
+      var p2 = findPinById(w.pin2Id);
+      if (!p1 || !p2) {
+        wires.push(w);
+        return;
+      }
+      w.x1 = p1.x;
+      w.y1 = p1.y;
+      w.x2 = p2.x;
+      w.y2 = p2.y;
+      w.waypoints = [];
+      wires.push(w);
+      window._routingWire = w;
+      var routedWire = buildPreferredWireRoute(p1, p2, w, 0);
+      w.waypoints = simplifyWirePath(routedWire.waypoints);
+      w.lane = routedWire.lane;
+    });
+  } finally {
+    window._routingWire = null;
+    wires = allWires;
+  }
+}
+
 function rerouteAutomaticWires(onlyComp) {
+  if (!onlyComp) {
+    rerouteAllAutomaticWires();
+    return;
+  }
+
   var automatic = wires.filter(function(w) { return w.autoRoute !== false; });
-  automatic.forEach(function(w, wi) {
-    if (typeof w.lane !== 'number') w.lane = (wi % 9) - 4;
+  automatic.forEach(function(w) {
+    // Default to lane 0. buildPreferredWireRoute only steps aside when the
+    // un-offset route would collide with another wire.
+    if (typeof w.lane !== 'number') w.lane = 0;
   });
 
   // When a component is passed in (while dragging it), only the wires attached
@@ -1098,7 +1256,9 @@ function rerouteAutomaticWires(onlyComp) {
       w.y2 = p2.y;
       w.waypoints = [];
       window._routingWire = w;
-      w.waypoints = simplifyWirePath(buildWireWaypoints(p1, p2, [], 0, w.lane));
+      var routedWire = buildPreferredWireRoute(p1, p2, w, 0);
+      w.waypoints = simplifyWirePath(routedWire.waypoints);
+      w.lane = routedWire.lane;
       window._routingWire = null;
     });
   }
@@ -1167,6 +1327,35 @@ function getAvailableWireLane() {
   return best;
 }
 
+// Route a wire with as little offset as possible: lane 0 first, then the
+// preferred lane, then nearby lanes. A non-zero lane shifts the route by
+// WIRE_LANE_SPACING (30px), so it is only worth using when lane 0 would run
+// alongside an existing wire.
+function buildPreferredWireRoute(startPin, endPin, ignoreWire, preferredLane) {
+  var lanes = [];
+  function addLane(value) {
+    if (typeof value === 'number' && lanes.indexOf(value) === -1) lanes.push(value);
+  }
+  addLane(0);
+  addLane(preferredLane);
+  [1, -1, 2, -2, 3, -3, 4, -4].forEach(addLane);
+
+  function middleOf(waypoints) {
+    if (!waypoints || waypoints.length <= 2) return waypoints || [];
+    return waypoints.slice(1, waypoints.length - 1);
+  }
+
+  var fallback = null;
+  for (var i = 0; i < lanes.length; i++) {
+    var waypoints = buildWireWaypoints(startPin, endPin, [], 0, lanes[i]);
+    if (!fallback) fallback = { waypoints: waypoints, lane: lanes[i] };
+    if (!wirePathCollidesWithExisting(middleOf(waypoints), ignoreWire)) {
+      return { waypoints: waypoints, lane: lanes[i] };
+    }
+  }
+  return fallback;
+}
+
 function releaseHeldButton() {
   if (_heldButton) {
     _heldButton.comp.state.pressed = false;
@@ -1178,6 +1367,17 @@ function releaseHeldButton() {
 
 function clearDragging(resetCursor) {
   var shouldCommit = !!(dragging && dragging.componentMoved);
+  var segmentDragWire = (dragging && dragging.type === 'wire-segment') ? dragging.wire : null;
+
+  // Commit a dragged segment: drop duplicated/collinear points and keep only
+  // the interior corners as waypoints.
+  if (segmentDragWire) {
+    var segmentPath = [{ x: segmentDragWire.x1, y: segmentDragWire.y1 }]
+      .concat(segmentDragWire.waypoints || [])
+      .concat([{ x: segmentDragWire.x2, y: segmentDragWire.y2 }]);
+    segmentDragWire.waypoints = simplifyWirePath(segmentPath).slice(1, -1);
+  }
+
   wires.forEach(function(w) {
     delete w._dragGhost;
     delete w._previewWhileDragging;
@@ -1190,10 +1390,13 @@ function clearDragging(resetCursor) {
     canvas.style.cursor = 'crosshair';
   }
   if (shouldCommit) {
-    // The preview already contains the route calculated for the component's
-    // final drag position. Re-routing here can choose a different path from
-    // the ghost, making the wire jump when the mouse is released.
+    // Re-route after the part is dropped so the final layout matches the
+    // deterministic "Reset all wire routes" result instead of keeping the
+    // incremental preview routes from the drag.
+    if (typeof rerouteAllAutomaticWires === 'function') rerouteAllAutomaticWires();
     if (typeof draw === 'function') draw();
+  } else if (segmentDragWire && typeof draw === 'function') {
+    draw();
   }
 }
 
@@ -1334,6 +1537,34 @@ function handleCanvasMouseMove(e) {
       var relY = Math.min(Math.max(mouseY - fls.y, 0), fls.h);
       dragging.comp.state.analog = Math.round((1 - relY / fls.h) * 4095);
       dragging.comp.state.detected = dragging.comp.state.analog < 2000;
+      draw();
+      return;
+    }
+
+    if (dragging.type === 'wire-segment') {
+      dragging.wire.autoRoute = false;
+      var segmentGrid = 12;
+      var rawOffset = dragging.horizontal
+        ? mouseY - dragging.startA.y
+        : mouseX - dragging.startA.x;
+      var segmentOffset = Math.round(rawOffset / segmentGrid) * segmentGrid;
+
+      dragging.offset = segmentOffset;
+      dragging.wire.waypoints = shiftWireSegmentWaypoints(
+        dragging.baseWaypoints,
+        dragging.segIndex,
+        dragging.horizontal,
+        segmentOffset,
+        dragging.startA,
+        dragging.startB
+      );
+
+      // Draw the shifted step directly while dragging; nudge uses the locked
+      // render points so the preview matches the final committed path.
+      dragging.wire._dragLockedRenderPts = [{ x: dragging.wire.x1, y: dragging.wire.y1 }]
+        .concat(dragging.wire.waypoints)
+        .concat([{ x: dragging.wire.x2, y: dragging.wire.y2 }]);
+      syncWireEndpoints(dragging.wire);
       draw();
       return;
     }
@@ -1675,19 +1906,27 @@ function handleCanvasMouseDown(e) {
       if (wireHit.type === 'handle') {
         saveState();
         var w = wireHit.wire;
-        if (!w.waypoints) w.waypoints = [];
-
-        var pts = w._renderPts || [{ x: w.x1, y: w.y1 }].concat(w.waypoints).concat([{ x: w.x2, y: w.y2 }]);
+        var logicalPts = [{ x: w.x1, y: w.y1 }]
+          .concat(w.waypoints || [])
+          .concat([{ x: w.x2, y: w.y2 }]);
         var seg = wireHit.segIndex;
-        var newWp = {
-          x: (pts[seg].x + pts[seg + 1].x) / 2,
-          y: (pts[seg].y + pts[seg + 1].y) / 2
-        };
-        newWp = snapWirePointToGrid(newWp);
+        if (seg < 0 || seg >= logicalPts.length - 1) return;
+
+        var segA = logicalPts[seg];
+        var segB = logicalPts[seg + 1];
+        var segmentHorizontal = Math.abs(segA.y - segB.y) < 0.5;
 
         w.autoRoute = false;
-        w.waypoints.splice(seg, 0, newWp);
-        dragging = { type: 'wire-waypoint', wire: w, wpIndex: seg };
+        dragging = {
+          type: 'wire-segment',
+          wire: w,
+          segIndex: seg,
+          horizontal: segmentHorizontal,
+          startA: { x: segA.x, y: segA.y },
+          startB: { x: segB.x, y: segB.y },
+          baseWaypoints: (w.waypoints || []).slice(),
+          offset: 0
+        };
         canvas.style.cursor = 'grabbing';
         draw();
         return;
@@ -1728,6 +1967,7 @@ function handleCanvasMouseDown(e) {
       if (dx8 * dx8 + dy8 * dy8 < 144 || dx9 * dx9 + dy9 * dy9 < 144) {
         saveState();
         wires.splice(wi, 1);
+        if (typeof rerouteAllAutomaticWires === 'function') rerouteAllAutomaticWires();
         updateStatus('Wire deleted');
         draw();
         return;
@@ -1740,6 +1980,7 @@ function handleCanvasMouseDown(e) {
         if (dxw * dxw + dyw * dyw < 64) {
           saveState();
           wires.splice(wi, 1);
+          if (typeof rerouteAllAutomaticWires === 'function') rerouteAllAutomaticWires();
           updateStatus('Wire deleted');
           draw();
           return;
@@ -1827,10 +2068,12 @@ function handleCanvasMouseDown(e) {
 
     var startComp = findPinOwner(wireStart);
     var endComp = findPinOwner(pin);
-    // Give every automatic wire an unused lane so later wires do not reuse
-    // the same bend corridor after the first five connections.
-    var wireLane = getAvailableWireLane();
-    var autoWaypoints = buildWireWaypoints(wireStart, pin, [], 0, wireLane);
+    // Prefer lane 0 (no offset) and only step aside when the direct corridor
+    // would run alongside an existing wire.
+    window._routingWire = null;
+    var routedWire = buildPreferredWireRoute(wireStart, pin, null, getAvailableWireLane());
+    var wireLane = routedWire.lane;
+    var autoWaypoints = routedWire.waypoints;
 
     wires.push({
       x1: wireStart.x,
@@ -1844,6 +2087,10 @@ function handleCanvasMouseDown(e) {
       lane: wireLane,
       autoRoute: true
     });
+
+    // Re-route the whole bundle in order so the new wire is planned the same
+    // way "Reset all wire routes" plans it, instead of being squeezed in last.
+    if (typeof rerouteAllAutomaticWires === 'function') rerouteAllAutomaticWires();
 
     updateStatus('Connected: ' + wireStart.name + ' → ' + pin.name);
     showConnectionToast('Connected: ' + wireStart.name + ' → ' + pin.name);
@@ -1863,7 +2110,7 @@ function handlePointerRelease() {
 
 function handleCanvasMouseLeave() {
   releaseHeldButton();
-  if (dragging && dragging.type === 'wire-waypoint') {
+  if (dragging && (dragging.type === 'wire-waypoint' || dragging.type === 'wire-segment')) {
     clearDragging(true);
   }
 }

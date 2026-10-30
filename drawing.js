@@ -1,4 +1,4 @@
-﻿// ==========================================
+// ==========================================
 // DRAWING FUNCTIONS - drawing.js
 // ==========================================
 // ==========================================
@@ -512,7 +512,26 @@ function drawWirePath(w) {
   ctx.shadowOffsetY = 1;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
-  for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  // Rounded corners read as bends rather than hard right angles. The radius is
+  // clamped to half of each adjacent segment so short automatic segments do not
+  // overlap or overshoot.
+  var cornerRadius = 7;
+  for (var ci = 1; ci < pts.length - 1; ci++) {
+    var prev = pts[ci - 1];
+    var corner = pts[ci];
+    var next = pts[ci + 1];
+    var segIn = Math.sqrt(
+      (corner.x - prev.x) * (corner.x - prev.x) + (corner.y - prev.y) * (corner.y - prev.y)
+    );
+    var segOut = Math.sqrt(
+      (next.x - corner.x) * (next.x - corner.x) + (next.y - corner.y) * (next.y - corner.y)
+    );
+    var radius = Math.min(cornerRadius, segIn / 2, segOut / 2);
+    if (radius > 0.5) ctx.arcTo(corner.x, corner.y, next.x, next.y, radius);
+    else ctx.lineTo(corner.x, corner.y);
+  }
+  var lastPoint = pts[pts.length - 1];
+  ctx.lineTo(lastPoint.x, lastPoint.y);
   ctx.stroke();
 
   ctx.restore();

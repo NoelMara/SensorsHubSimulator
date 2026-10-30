@@ -100,6 +100,7 @@
 <div class="menu-pop" id="menu-more">
   <button class="menu-item" id="btn-wire-controls" onclick="toggleWireControls(); closeMenus()" aria-pressed="true">⟂ Hide wire controls</button>
   <button class="menu-item" id="btn-reset-wire" onclick="closeMenus(); resetSelectedWireRoute()">↻ Reset selected wire</button>
+  <button class="menu-item" onclick="closeMenus(); resetAllWireRoutes()">↻ Reset all wire routes</button>
   <label class="menu-item" for="wire-color-picker">◉ Wire color <input id="wire-color-picker" type="color" value="#7aa2f7" onchange="setSelectedWireColor(this.value); closeMenus()" style="float:right;width:28px;height:20px;padding:0;border:0;background:transparent"></label>
   <button class="menu-item" onclick="closeMenus(); resetSelectedWireColor()">↺ Reset wire color</button>
   <button class="menu-item" onclick="closeMenus(); checkCircuit()">✓ Check circuit</button>
@@ -273,19 +274,19 @@
 <!-- ============================================================
      SCRIPTS
      ============================================================ -->
-<script src="wireNudge.js"></script>
-<script src="drawing.js"></script>
-<script src="components.js"></script>
-<script src="interaction.js"></script>
-<script src="LibraryRegistry.js"></script>
-<script src="libraries/DHT.js"></script>
-<script src="libraries/Wire.js"></script>
-<script src="libraries/SSD1306.js"></script>
-<script src="libraries/Servo.js"></script>
-<script src="simulator.js"></script>
-<script src="lessons.js"></script>
-<script src="helpTemplate.js"></script>
-<script src="helpModal.js"></script>
+<script src="wireNudge.js?v=2"></script>
+<script src="drawing.js?v=2"></script>
+<script src="components.js?v=2"></script>
+<script src="interaction.js?v=2"></script>
+<script src="LibraryRegistry.js?v=2"></script>
+<script src="libraries/DHT.js?v=2"></script>
+<script src="libraries/Wire.js?v=2"></script>
+<script src="libraries/SSD1306.js?v=2"></script>
+<script src="libraries/Servo.js?v=2"></script>
+<script src="simulator.js?v=2"></script>
+<script src="lessons.js?v=2"></script>
+<script src="helpTemplate.js?v=2"></script>
+<script src="helpModal.js?v=2"></script>
 
 <script>
 /* ============================================================
