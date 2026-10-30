@@ -31,7 +31,7 @@ var STARTER_LESSONS = {
   ultrasonic: {
     title: 'ESP32 HC-SR04 Distance',
     fileMode: 'ino',
-    ino: '#define TRIG_PIN 5\n#define ECHO_PIN 18\n\nvoid setup() {\n  pinMode(TRIG_PIN, OUTPUT);\n  pinMode(ECHO_PIN, INPUT);\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  digitalWrite(TRIG_PIN, LOW);\n  delayMicroseconds(2);\n  digitalWrite(TRIG_PIN, HIGH);\n  delayMicroseconds(10);\n  digitalWrite(TRIG_PIN, LOW);\n  long duration = pulseIn(ECHO_PIN, HIGH);\n  float distance = duration * 0.034 / 2;\n  Serial.print("Distance: ");\n  Serial.println(distance);\n  delay(300);\n}',
+    ino: '#define TRIG_PIN 5\n#define ECHO_PIN 18\n\nvoid setup() {\n  pinMode(TRIG_PIN, OUTPUT);\n  pinMode(ECHO_PIN, INPUT);\n  Serial.begin(115200);\n}\n\nvoid loop() {\n  digitalWrite(TRIG_PIN, LOW);\n  delayMicroseconds(2);\n  digitalWrite(TRIG_PIN, HIGH);\n  delayMicroseconds(10);\n  digitalWrite(TRIG_PIN, LOW);\n  long duration = pulseIn(ECHO_PIN, HIGH);\n  float distance = duration * 0.0343 / 2;\n  Serial.print("Distance: ");\n  Serial.println(distance);\n  delay(300);\n}',
     py: '',
     build: function() {
       var mcu = placeLessonComponent('esp32', 70, 36);
