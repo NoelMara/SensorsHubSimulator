@@ -1514,7 +1514,13 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
         }
       }
 
-      const ok = executeLineWithDelay(l, phase, sourceLineIndicesForPhase(phase, i));
+      const ok = executeLineWithDelay(
+        l,
+        phase,
+        sourceIndices && Number.isInteger(sourceIndices[i])
+          ? sourceIndices[i]
+          : sourceLineIndicesForPhase(phase, i)
+      );
       if (ok === false) return { nextIdx: i, stopped: true };
       if (isDelayActive) return { nextIdx: i + 1, delayed: true };
 
@@ -1569,6 +1575,7 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
     }
 
     const bodyLines = [];
+    const bodyIndices = [];
     let depth = 0;
 
     while (i < sourceLines.length) {
@@ -1596,7 +1603,10 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
       const closes = (bl.match(/\}/g) || []).length;
       depth += opens - closes;
 
-      if (bl !== '{' && bl !== '}') bodyLines.push(bl);
+      if (bl !== '{' && bl !== '}') {
+        bodyLines.push(bl);
+        bodyIndices.push(i);
+      }
       i++;
     }
 
@@ -1606,7 +1616,7 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
 
     if (shouldRun) {
       executed = true;
-      executeStructuredLines(bodyLines, phase, path);
+      executeStructuredLines(bodyLines, phase, path, bodyIndices);
       if (isDelayActive) {
         delayAdvance = i - startIdx;
         delayPhase = phase;
@@ -1726,6 +1736,7 @@ function isStandaloneClosingBraceLine(line) {
 
 function collectStructuredBlockBody(sourceLines, headerIdx) {
   var bodyLines = [];
+  var bodyIndices = [];
   var i = headerIdx + 1;
   var depth = 0;
 
@@ -1749,11 +1760,14 @@ function collectStructuredBlockBody(sourceLines, headerIdx) {
     var closes = (bl.match(/\}/g) || []).length;
     depth += opens - closes;
 
-    if (bl !== '{' && bl !== '}') bodyLines.push(bl);
+    if (bl !== '{' && bl !== '}') {
+      bodyLines.push(bl);
+      bodyIndices.push(i);
+    }
     i++;
   }
 
-  return { bodyLines: bodyLines, nextIdx: i };
+  return { bodyLines: bodyLines, bodyIndices: bodyIndices, nextIdx: i };
 }
 
 function findNextExecutableLine(sourceLines, idx) {
@@ -1785,12 +1799,12 @@ function handleTryBlock(startIdx, sourceLines, phase, blockPath) {
 
   try {
     simulatorTryCatchDepth++;
-    executeStructuredLines(tryBlock.bodyLines, phase, path);
+    executeStructuredLines(tryBlock.bodyLines, phase, path, tryBlock.bodyIndices);
   } catch (err) {
     if (!hasCatch || !isCatchableSimulatorError(err)) throw err;
     lastExceptionType = err.name || 'Exception';
     lastExceptionMessage = err.message || '';
-    executeStructuredLines(catchLines, phase, path);
+    executeStructuredLines(catchLines, phase, path, catchBlock.bodyIndices);
   } finally {
     simulatorTryCatchDepth--;
   }
@@ -1883,7 +1897,7 @@ function handleWhileBlock(startIdx, sourceLines, phase, blockPath) {
   var frame = runtimeWhileFrames[frameKey] || { bodyIdx: 0, iterationCount: 0 };
 
   while (evalCondition(m[1])) {
-    var result = executeStructuredLinesFrom(block.bodyLines, phase, frame.bodyIdx, path);
+    var result = executeStructuredLinesFrom(block.bodyLines, phase, frame.bodyIdx, path, block.bodyIndices);
 
     if (isDelayActive) {
       frame.bodyIdx = result.nextIdx;
@@ -1918,7 +1932,7 @@ function handleForBlock(startIdx, sourceLines, phase, blockPath) {
 
   for (var value = info.start; isForConditionTrue(value, info.op, info.end); value += info.step) {
     variables[info.varName] = value;
-    executeStructuredLines(block.bodyLines, phase, path);
+    executeStructuredLines(block.bodyLines, phase, path, block.bodyIndices);
     iterationCount++;
 
     if (isDelayActive) {
