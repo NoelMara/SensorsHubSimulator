@@ -354,6 +354,7 @@ function clearAll() {
   components = [];
   wires = [];
   wireStart = null;
+  if (typeof selectedWire !== 'undefined') selectedWire = null;
   updateStatus('Cleared');
   if (typeof draw === 'function') draw();
 }

@@ -1966,6 +1966,7 @@ function handleCanvasMouseDown(e) {
       if (dx8 * dx8 + dy8 * dy8 < 144 || dx9 * dx9 + dy9 * dy9 < 144) {
         saveState();
         wires.splice(wi, 1);
+        if (selectedWire === ww) selectedWire = null;
         if (typeof rerouteAllAutomaticWires === 'function') rerouteAllAutomaticWires();
         updateStatus('Wire deleted');
         draw();
@@ -1979,6 +1980,7 @@ function handleCanvasMouseDown(e) {
         if (dxw * dxw + dyw * dyw < 64) {
           saveState();
           wires.splice(wi, 1);
+          if (selectedWire === ww) selectedWire = null;
           if (typeof rerouteAllAutomaticWires === 'function') rerouteAllAutomaticWires();
           updateStatus('Wire deleted');
           draw();

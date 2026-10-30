@@ -572,6 +572,8 @@ function updateWireHandles(w) {
 function drawWireControls(w) {
   if (typeof showWireControls !== 'undefined' && !showWireControls) return;
   if (typeof dragging !== 'undefined' && dragging && dragging.componentMoved) return;
+  // A deleted wire can still be referenced as selected; never draw its markers.
+  if (wires.indexOf(w) === -1) return;
   // A wire hidden behind a drag preview must not leave markers on its old route.
   if (w._previewWhileDragging) return;
 
@@ -770,7 +772,7 @@ function draw() {
     });
   }
 
-  if (selectedWire) drawWireControls(selectedWire);
+  if (selectedWire && wires.indexOf(selectedWire) !== -1) drawWireControls(selectedWire);
 
   if (wireStart && tool === 'wire') {
     var previewTarget = null;
