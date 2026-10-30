@@ -438,6 +438,9 @@ function resolvePin(arg) {
     return isNaN(n) ? null : n;
   }
 
+  const arrayValue = parseValue(arg);
+  if (typeof arrayValue === 'number' && Number.isFinite(arrayValue)) return arrayValue;
+
   if (/^D\d+$/i.test(arg)) return parseInt(arg.slice(1), 10);
   if (/^GP\d+$/i.test(arg)) return parseInt(arg.slice(2), 10);
   if (/^TX0$/i.test(arg)) return 1;
@@ -452,6 +455,11 @@ function resolvePin(arg) {
 function parseValue(str) {
   str = String(str || '').trim().replace(/;$/, '');
   str = applySimpleCastExpression(str);
+
+  const arrayRef = str.match(/^(\w+)\s*\[\s*(\d+)\s*\]$/);
+  if (arrayRef && Array.isArray(variables[arrayRef[1]])) {
+    return variables[arrayRef[1]][Number(arrayRef[2])] ?? 0;
+  }
 
   if (variables[str] !== undefined) return variables[str];
   if (
@@ -481,6 +489,9 @@ function parseContent(content) {
   content = resolveSimulatorRuntimeCalls(String(content || '').trim());
   content = applySimpleCastExpression(content);
   content = content.replace(/^F\((.+)\)$/, '$1');
+  content = content.replace(/\b(\w+)\s*\[\s*(\d+)\s*\]/g, function(_, name, index) {
+    return Array.isArray(variables[name]) ? String(variables[name][Number(index)] ?? 0) : name + '[' + index + ']';
+  });
 
   content = content.replace(/String\(([^)]+)\)/g, function(_, inner) {
     const v = inner.trim();
@@ -519,6 +530,12 @@ function parseContent(content) {
 
     return p;
   }).join('');
+}
+
+function resolveArrayReferencesInLine(line) {
+  return String(line || '').replace(/\b(\w+)\s*\[\s*(\d+)\s*\]/g, function(_, name, index) {
+    return Array.isArray(variables[name]) ? String(variables[name][Number(index)] ?? 0) : name + '[' + index + ']';
+  });
 }
 
 function evaluateLiteral(str) {
@@ -3319,11 +3336,21 @@ function runCode() {
     }
 
     if (typeof libraryRegistry !== 'undefined') {
-      const instance = libraryRegistry.tryInstantiate(l);
+      const instance = libraryRegistry.tryInstantiate(resolveArrayReferencesInLine(l));
       if (instance) continue;
     }
 
     if (!inSetup && !inLoop) {
+      const arrayDeclaration = l.match(/^(?:(?:const\s+)?(?:int|float|long|byte|double)\s+)(\w+)\s*\[\s*(\d+)\s*\]\s*(?:=\s*\{(.*?)\})?\s*;?$/);
+      if (arrayDeclaration) {
+        const initialValues = arrayDeclaration[3]
+          ? arrayDeclaration[3].split(',').map(function(value) { return evaluateLiteral(value); })
+          : [];
+        variables[arrayDeclaration[1]] = Array.from({ length: Number(arrayDeclaration[2]) }, function(_, index) {
+          return initialValues[index] === undefined ? 0 : initialValues[index];
+        });
+        continue;
+      }
       const vd = l.match(/^(?:const\s+)?(?:int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+(\w+)\s*=\s*(.+);?$/);
       if (vd) variables[vd[1]] = evaluateLiteral(vd[2]);
     }
@@ -3960,6 +3987,35 @@ function executeLineWithDelay(line, phase, sourceLine) {
       const litVal = evaluateLiteral(resolvedRhs);
       if (op === '+=') variables[vname] = String(variables[vname] || '') + String(litVal);
       else variables[vname] = litVal;
+    }
+    return true;
+  }
+
+  const arrayDecl = l.match(/^(?:(?:const\s+)?(?:int|float|long|byte|double)\s+)(\w+)\s*\[\s*(\d+)\s*\]\s*(?:=\s*\{(.*?)\})?\s*;?$/);
+  if (arrayDecl) {
+    const initialValues = arrayDecl[3]
+      ? arrayDecl[3].split(',').map(function(value) { return evaluateLiteral(value); })
+      : [];
+    variables[arrayDecl[1]] = Array.from({ length: Number(arrayDecl[2]) }, function(_, index) {
+      return initialValues[index] === undefined ? 0 : initialValues[index];
+    });
+    return true;
+  }
+
+  const arrayAssign = l.match(/^(\w+)\s*\[\s*(\d+)\s*\]\s*([+\-*\/]?=)\s*(.+)$/);
+  if (arrayAssign && Array.isArray(variables[arrayAssign[1]])) {
+    const name = arrayAssign[1];
+    const index = Number(arrayAssign[2]);
+    const rhs = arrayAssign[4].replace(/;$/, '').trim();
+    const resolvedArrayRhs = rhs.replace(/\b(\w+)\s*\[\s*(\d+)\s*\]/g, function(_, refName, refIndex) {
+      return Array.isArray(variables[refName]) ? String(variables[refName][Number(refIndex)] ?? 0) : refName + '[' + refIndex + ']';
+    });
+    const value = evaluateMath(resolveSimulatorRuntimeCalls(resolvedArrayRhs));
+    const nextValue = value === null ? evaluateLiteral(resolvedArrayRhs) : value;
+    if (index >= 0 && index < variables[name].length) {
+      if (arrayAssign[3] === '+=') variables[name][index] += Number(nextValue) || 0;
+      else if (arrayAssign[3] === '-=') variables[name][index] -= Number(nextValue) || 0;
+      else variables[name][index] = nextValue;
     }
     return true;
   }
