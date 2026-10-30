@@ -10,6 +10,7 @@ let pinValues = {};
 let loopLines = [];
 let setupLines = [];
 let defines = {};
+let userFunctions = {};
 let currentLineIndex = 0;
 let currentSetupLineIndex = 0;
 let inSetupPhase = false;
@@ -1378,6 +1379,32 @@ function executeStructuredLines(sourceLines, phase, blockPath) {
 function sourceLineIndicesForPhase(phase, index) {
   var map = phase === 'setup' ? setupSourceLines : loopSourceLines;
   return map[index];
+}
+
+function expandUserFunctionCalls(lines, sourceLines, callStack) {
+  var expandedLines = [];
+  var expandedSources = [];
+  var stack = callStack || {};
+
+  lines.forEach(function(line, index) {
+    var call = String(line || '').trim().match(/^(\w+)\s*\(\s*\)\s*;?$/);
+    if (!call || !userFunctions[call[1]] || stack[call[1]]) {
+      expandedLines.push(line);
+      if (sourceLines) expandedSources.push(sourceLines[index]);
+      return;
+    }
+
+    var nextStack = Object.assign({}, stack);
+    nextStack[call[1]] = true;
+    var bodySources = sourceLines ? userFunctions[call[1]].map(function() {
+      return sourceLines[index];
+    }) : null;
+    var body = expandUserFunctionCalls(userFunctions[call[1]], bodySources, nextStack);
+    expandedLines.push.apply(expandedLines, body.lines);
+    if (sourceLines) expandedSources.push.apply(expandedSources, body.sourceLines);
+  });
+
+  return { lines: expandedLines, sourceLines: expandedSources };
 }
 
 function updateStructuredExecutionHighlight(sourceLines, index, phase) {
@@ -3187,6 +3214,7 @@ function runCode() {
   pinValues = {};
   setupLines = [];
   loopLines = [];
+  userFunctions = {};
   currentSetupLineIndex = 0;
   currentLineIndex = 0;
   setupSourceLines = [];
@@ -3232,12 +3260,33 @@ function runCode() {
   const pLines = processed.split('\n');
   let inSetup = false;
   let inLoop = false;
+  let activeFunction = null;
+  let functionBraceDepth = 0;
   let braceDepth = 0;
 
   for (let i = 0; i < pLines.length; i++) {
     const raw = pLines[i];
     const l = stripInlineCppComment(raw).trim();
     if (!l || l.startsWith('//')) continue;
+
+    if (activeFunction) {
+      const opensInFunction = (l.match(/\{/g) || []).length;
+      const closesInFunction = (l.match(/\}/g) || []).length;
+      if (l !== '}' && l !== '};') userFunctions[activeFunction].push(l);
+      functionBraceDepth += opensInFunction - closesInFunction;
+      if (functionBraceDepth <= 0) activeFunction = null;
+      continue;
+    }
+
+    if (!inSetup && !inLoop) {
+      const functionMatch = l.match(/^void\s+(\w+)\s*\(\s*\)\s*\{\s*$/);
+      if (functionMatch && functionMatch[1] !== 'setup' && functionMatch[1] !== 'loop') {
+        activeFunction = functionMatch[1];
+        functionBraceDepth = 1;
+        userFunctions[activeFunction] = [];
+        continue;
+      }
+    }
 
     if (typeof libraryRegistry !== 'undefined') {
       const includedLib = libraryRegistry.parseInclude(l);
@@ -3306,6 +3355,13 @@ function runCode() {
   const flattenedLoop = flattenTryCatchBlocks(unrolledLoop.lines || unrolledLoop, unrolledLoop.sourceLines || loopSourceLines);
   loopLines = flattenedLoop.lines || flattenedLoop;
   loopSourceLines = flattenedLoop.sourceLines || loopSourceLines;
+
+  var expandedSetup = expandUserFunctionCalls(setupLines, setupSourceLines);
+  setupLines = expandedSetup.lines;
+  setupSourceLines = expandedSetup.sourceLines;
+  var expandedLoop = expandUserFunctionCalls(loopLines, loopSourceLines);
+  loopLines = expandedLoop.lines;
+  loopSourceLines = expandedLoop.sourceLines;
 
   inSetupPhase = setupLines.length > 0;
 
