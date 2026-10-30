@@ -477,6 +477,10 @@ function readArrayElement(name, indexToken) {
   return array[index] === undefined ? 0 : array[index];
 }
 
+function hasLiteralDivisionByZero(expr) {
+  return /\/\s*0(?:\.0*)?\s*(?:[),;]|$)/.test(String(expr || ''));
+}
+
 // Apply a transform only to the parts of an expression that are outside quoted
 // strings, so text like "values[0]" or "min(1,2)" prints literally.
 function transformOutsideStrings(text, transform) {
@@ -637,6 +641,13 @@ function parseContent(content) {
   content = content.replace(/^F\((.+)\)$/, '$1');
   content = expandMathCalls(content);
   content = replaceArrayReferences(content);
+
+  // Evaluate numeric expressions before parseFloat, which would otherwise
+  // turn "10 / 2" into 10 and silently discard the division.
+  if (!/^['"].*['"]$/.test(content) && /[+\-*\/%()]/.test(content)) {
+    var contentMath = evaluateMath(content);
+    if (contentMath !== null) return String(contentMath);
+  }
 
   content = content.replace(/String\(([^)]+)\)/g, function(_, inner) {
     const v = inner.trim();
@@ -845,7 +856,9 @@ function evaluateBooleanLikeExpression(expr) {
     if (/^[\d\s<>=!&|.()+\-*/%]+$/.test(normalized)) {
       return !!Function('"use strict"; return (' + normalized + ')')();
     }
-  } catch (err) {}
+  } catch (err) {
+    if (err && err.isSimulatorRuntimeError) throw err;
+  }
 
   return parseBooleanLike(parseValue(normalized));
 }
@@ -1456,6 +1469,7 @@ function invokeLibraryMethodCall(mc) {
 // ==========================================
 
 function evalCondition(cond) {
+  if (hasLiteralDivisionByZero(cond)) throw makeSimulatorRuntimeError('division by zero');
   cond = normalizeEvaluatorExpression(String(cond || '').trim());
 
   cond = cond.replace(/\bisnan\s*\(([^)]+)\)/gi, function(_, inner) {
@@ -2315,7 +2329,9 @@ function evaluateMath(expr) {
       const r = Function('"use strict";return (' + e + ')')();
       return Math.round(r * 100) / 100;
     }
-  } catch (err) {}
+  } catch (err) {
+    if (err && err.isSimulatorRuntimeError) throw err;
+  }
 
   const n = parseFloat(e);
   return isNaN(n) ? null : n;
@@ -2848,6 +2864,15 @@ function inlinePythonFunction(fn, state, targetVar) {
 }
 
 function translatePythonStatement(text, state, options) {
+  var listAssign = text.match(/^(\w+)\s*=\s*\[\s*(.*?)\s*\]$/);
+  if (listAssign) {
+    var listValues = listAssign[2].trim() === '' ? [] : splitCallArguments(listAssign[2]);
+    var renderedValues = listValues.map(function(value) {
+      return translatePythonExpression(value, state);
+    });
+    return ['int ' + listAssign[1] + '[' + renderedValues.length + '] = {' + renderedValues.join(', ') + '};'];
+  }
+
   var pinCtor = text.match(/^(\w+)\s*=\s*(?:machine\.)?Pin\s*\((.+)\)$/);
   if (pinCtor) {
     var pinArgs = splitCallArguments(pinCtor[2]);
@@ -4056,6 +4081,7 @@ function executeLineWithDelay(line, phase, sourceLine) {
 
   const spln = l.match(/^Serial\.println\s*\(\s*(.*?)\s*\)$/);
   if (spln) {
+    if (hasLiteralDivisionByZero(spln[1])) throw makeSimulatorRuntimeError('division by zero');
     var printedLine = parseContent(spln[1]);
     if (!noteUnresolvedExpression(spln[1], printedLine, phase)) serialWrite(printedLine, true);
     return true;
@@ -4063,6 +4089,7 @@ function executeLineWithDelay(line, phase, sourceLine) {
 
   const sp = l.match(/^Serial\.print\s*\(\s*(.*?)\s*\)$/);
   if (sp) {
+    if (hasLiteralDivisionByZero(sp[1])) throw makeSimulatorRuntimeError('division by zero');
     var printedText = parseContent(sp[1]);
     if (!noteUnresolvedExpression(sp[1], printedText, phase)) serialWrite(printedText, false);
     return true;
@@ -4296,6 +4323,9 @@ function executeLineWithDelay(line, phase, sourceLine) {
     const vname = varDecl[1];
     const op = varDecl[2];
     const rhs = varDecl[3].replace(/;$/, '').trim();
+    if (/\/\s*0(?:\.0*)?\s*(?:[)\s]|$)/.test(rhs)) {
+      throw makeSimulatorRuntimeError('division by zero');
+    }
     const resolvedRhs = resolveSimulatorRuntimeCalls(rhs);
 
     if (['if', 'else', 'while', 'for', 'return', 'void', 'int', 'float', 'bool'].includes(vname)) return true;
