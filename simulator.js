@@ -3906,6 +3906,7 @@ function tick() {
 
       const ok = executeLineWithDelay(setupLines[currentSetupLineIndex], 'setup', setupSourceLines[currentSetupLineIndex]);
       if (!isDelayActive && ok !== false) currentSetupLineIndex++;
+      if (typeof draw === 'function') draw();
       return;
     }
 
