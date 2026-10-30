@@ -29,6 +29,7 @@ let nextRuntimeTryId = 1;
 let runtimeWhileFrames = {};
 let lastExceptionType = '';
 let lastExceptionMessage = '';
+let activeSwitchFrame = null;
 
 function mpExceptionType() { return lastExceptionType; }
 function mpExceptionMessage() { return lastExceptionMessage; }
@@ -1389,8 +1390,8 @@ function evalCondition(cond) {
 // STRUCTURED EXECUTION
 // ==========================================
 
-function executeStructuredLines(sourceLines, phase, blockPath) {
-  return executeStructuredLinesFrom(sourceLines, phase, 0, blockPath);
+function executeStructuredLines(sourceLines, phase, blockPath, sourceIndices) {
+  return executeStructuredLinesFrom(sourceLines, phase, 0, blockPath, sourceIndices);
 }
 
 function sourceLineIndicesForPhase(phase, index) {
@@ -1424,14 +1425,16 @@ function expandUserFunctionCalls(lines, sourceLines, callStack) {
   return { lines: expandedLines, sourceLines: expandedSources };
 }
 
-function updateStructuredExecutionHighlight(sourceLines, index, phase) {
+function updateStructuredExecutionHighlight(sourceLines, index, phase, preferredIndex) {
   if (typeof updateExecutionHighlight !== 'function') return;
   const fullLines = phase === 'setup' ? setupLines : loopLines;
   const sourceMap = phase === 'setup' ? setupSourceLines : loopSourceLines;
   const target = String(sourceLines[index] || '').trim();
   if (!target) return;
 
-  let fullIndex = fullLines.indexOf(sourceLines[index]);
+  let fullIndex = Number.isInteger(preferredIndex)
+    ? preferredIndex
+    : fullLines.indexOf(sourceLines[index]);
   if (fullIndex < 0) {
     fullIndex = fullLines.findIndex(function(line, candidate) {
       return candidate >= (phase === 'setup' ? currentSetupLineIndex : currentLineIndex) &&
@@ -1441,7 +1444,7 @@ function updateStructuredExecutionHighlight(sourceLines, index, phase) {
   if (fullIndex >= 0) updateExecutionHighlight(sourceMap[fullIndex]);
 }
 
-function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
+function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sourceIndices, maxSteps) {
   for (let i = startIdx || 0; i < sourceLines.length;) {
     try {
       const l = String(sourceLines[i] || '').trim();
@@ -1451,10 +1454,13 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
         continue;
       }
 
-      updateStructuredExecutionHighlight(sourceLines, i, phase);
+      updateStructuredExecutionHighlight(sourceLines, i, phase, sourceIndices && sourceIndices[i]);
 
       if (l === 'return' || l.startsWith('return ') || l.startsWith('return;')) {
         return { nextIdx: i, returned: true };
+      }
+      if (l === 'break' || l === 'break;') {
+        return { nextIdx: i + 1, break: true };
       }
 
       const markerNext = handleTryMarkerLine(l, sourceLines, i);
@@ -1499,11 +1505,21 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
         }
       }
 
+      if (/^switch\s*\(/.test(l)) {
+        const consumed = handleSwitchBlock(i, sourceLines, phase, blockPath);
+        if (consumed > 0) {
+          if (isDelayActive) return { nextIdx: i, delayed: true };
+          i += consumed;
+          continue;
+        }
+      }
+
       const ok = executeLineWithDelay(l, phase, sourceLineIndicesForPhase(phase, i));
       if (ok === false) return { nextIdx: i, stopped: true };
       if (isDelayActive) return { nextIdx: i + 1, delayed: true };
 
       i++;
+      if (maxSteps && maxSteps <= 1) return { nextIdx: i };
     } catch (err) {
       const catchIdx = jumpToCatchForRuntimeError(err, sourceLines);
       if (catchIdx >= 0) {
@@ -1600,6 +1616,98 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
   }
 
   return i - startIdx;
+}
+
+function handleSwitchBlock(startIdx, sourceLines, phase, blockPath) {
+  const header = String(sourceLines[startIdx] || '').trim();
+  const match = header.match(/^switch\s*\((.+)\)\s*\{?\s*$/);
+  if (!match) return 0;
+
+  if (activeSwitchFrame && activeSwitchFrame.startIdx !== startIdx) activeSwitchFrame = null;
+  const block = activeSwitchFrame && activeSwitchFrame.startIdx === startIdx
+    ? activeSwitchFrame.block
+    : collectStructuredBlockBody(sourceLines, startIdx);
+  if (!activeSwitchFrame) activeSwitchFrame = { startIdx: startIdx, block: block, next: 0 };
+  const switchValue = evaluateMath(match[1]) ?? parseValue(match[1]);
+  let selectedBody = null;
+  let selectedIndices = null;
+  let defaultBody = null;
+  let defaultIndices = null;
+  let currentBody = null;
+  let currentIndices = null;
+
+  for (let i = 0; i < block.bodyLines.length; i++) {
+    const line = String(block.bodyLines[i] || '').trim();
+    const caseMatch = line.match(/^case\s+(.+?)\s*:\s*(.*)$/);
+    if (caseMatch) {
+      currentBody = [];
+      currentIndices = [];
+      const caseValue = evaluateMath(caseMatch[1].replace(/;$/, '').trim()) ?? parseValue(caseMatch[1]);
+      if (String(caseValue) === String(switchValue)) {
+        selectedBody = currentBody;
+        selectedIndices = currentIndices;
+      }
+      if (caseMatch[2]) {
+        currentBody.push(caseMatch[2]);
+        currentIndices.push(startIdx + 1 + i);
+      }
+      continue;
+    }
+    const defaultMatch = line.match(/^default\s*:\s*(.*)$/);
+    if (defaultMatch) {
+      currentBody = [];
+      currentIndices = [];
+      defaultBody = currentBody;
+      defaultIndices = currentIndices;
+      if (defaultMatch[1]) {
+        currentBody.push(defaultMatch[1]);
+        currentIndices.push(startIdx + 1 + i);
+      }
+      continue;
+    }
+    if (currentBody && !/^break\s*;?$/.test(line)) {
+      currentBody.push(line);
+      currentIndices.push(startIdx + 1 + i);
+    }
+  }
+
+  const body = selectedBody || defaultBody;
+  const bodyIndices = selectedBody ? selectedIndices : defaultIndices;
+  if (body) {
+    // Nested switches are executed by the surrounding structured block.
+    // Keep them synchronous so they do not leave a continuation frame that
+    // the parent block cannot resume safely.
+    if (blockPath && blockPath !== 'root') {
+      if (body.some(function(line) { return /^delay(?:Microseconds)?\s*\(/.test(String(line || '').trim()); })) {
+        const message = 'unsupported nested switch delay';
+        serialWrite('Error: ' + message, true);
+        updateStatus('Unsupported statement');
+        return block.nextIdx - startIdx;
+      }
+      executeStructuredLines(body, phase, (blockPath || '') + '/switch' + startIdx, bodyIndices);
+      activeSwitchFrame = null;
+      return block.nextIdx - startIdx;
+    }
+    activeSwitchFrame.body = body;
+    activeSwitchFrame.bodyIndices = bodyIndices;
+    const result = executeStructuredLinesFrom(
+      body,
+      phase,
+      activeSwitchFrame.next,
+      (blockPath || '') + '/switch' + startIdx,
+      bodyIndices,
+      1
+    );
+    activeSwitchFrame.next = result.nextIdx;
+    if (isDelayActive) {
+      delayAdvance = 0;
+      delayPhase = phase;
+      return -1;
+    }
+    if (activeSwitchFrame.next < body.length) return -1;
+  }
+  activeSwitchFrame = null;
+  return block.nextIdx - startIdx;
 }
 
 function isTryStartLine(line) {
@@ -3156,6 +3264,7 @@ function findBraceIssue(source) {
 
 function runCode() {
   if (running) stopCode();
+  activeSwitchFrame = null;
   clearSerialOutput();
 
   if (!validateMCULanguagePair()) return;
@@ -3567,6 +3676,15 @@ function tick() {
         }
       }
 
+      if (/^switch\s*\(/.test(l)) {
+        const consumed = handleSwitchBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
+        if (consumed === -1) return;
+        if (consumed > 0) {
+          if (!isDelayActive) currentSetupLineIndex += consumed;
+          return;
+        }
+      }
+
       const ok = executeLineWithDelay(setupLines[currentSetupLineIndex], 'setup', setupSourceLines[currentSetupLineIndex]);
       if (!isDelayActive && ok !== false) currentSetupLineIndex++;
       return;
@@ -3634,6 +3752,15 @@ function tick() {
       }
     }
 
+    if (/^switch\s*\(/.test(l)) {
+      const consumed = handleSwitchBlock(currentLineIndex, loopLines, 'loop', 'root');
+      if (consumed === -1) return;
+      if (consumed > 0) {
+        if (!isDelayActive) currentLineIndex += consumed;
+        return;
+      }
+    }
+
     const ok = executeLineWithDelay(loopLines[currentLineIndex], 'loop', loopSourceLines[currentLineIndex]);
     if (!isDelayActive && ok !== false) currentLineIndex++;
     if (typeof draw === 'function') draw();
@@ -3657,6 +3784,7 @@ function tick() {
 
 function stopCode() {
   running = false;
+  activeSwitchFrame = null;
   if (executionInterval) {
     clearInterval(executionInterval);
     executionInterval = null;
