@@ -3203,7 +3203,7 @@ function validateSourceCode(sourceCode, mode) {
         return 'Code outside function (line ' + (lineIndex + 1) + ')';
       }
       if (depth === 0 && executableAtTopLevel.test(trimmed)) return 'Code outside function';
-      if (depth === 0 && trimmed && !allowedTopLevel.test(trimmed) && !/^}/.test(trimmed)) {
+      if (depth === 0 && trimmed && trimmed !== '{' && !allowedTopLevel.test(trimmed) && !/^}/.test(trimmed)) {
         return 'Code outside function (line ' + (lineIndex + 1) + ')';
       }
       depth += (codeLine.match(/{/g) || []).length;
@@ -3401,6 +3401,7 @@ function runCode() {
   let inSetup = false;
   let inLoop = false;
   let activeFunction = null;
+  let pendingFunction = null;
   let functionBraceDepth = 0;
   let braceDepth = 0;
 
@@ -3408,6 +3409,17 @@ function runCode() {
     const raw = pLines[i];
     const l = stripInlineCppComment(raw).trim();
     if (!l || l.startsWith('//')) continue;
+
+    if (!activeFunction && pendingFunction) {
+      if (l === '{') {
+        activeFunction = pendingFunction;
+        pendingFunction = null;
+        functionBraceDepth = 1;
+        userFunctions[activeFunction] = [];
+        continue;
+      }
+      pendingFunction = null;
+    }
 
     if (activeFunction) {
       const opensInFunction = (l.match(/\{/g) || []).length;
@@ -3428,6 +3440,11 @@ function runCode() {
         activeFunction = functionMatch[1];
         functionBraceDepth = 1;
         userFunctions[activeFunction] = [];
+        continue;
+      }
+      const splitFunctionMatch = l.match(/^void\s+(\w+)\s*\(\s*\)\s*$/);
+      if (splitFunctionMatch && splitFunctionMatch[1] !== 'setup' && splitFunctionMatch[1] !== 'loop') {
+        pendingFunction = splitFunctionMatch[1];
         continue;
       }
     }
