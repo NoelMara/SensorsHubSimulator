@@ -104,7 +104,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge bend-badge">&#8618;</div>
           <div class="help-step-content">
             <div class="help-step-title">Bend wires around components</div>
-            <div class="help-step-desc">Drag a wire midpoint or diamond handle to add and move a bend freely on the grid. <strong>Double-click</strong> a bend point to remove it.</div>
+            <div class="help-step-desc">Drag a <strong>diamond</strong> on a wire segment to slide that straight piece sideways; the wire adds the two corners for you. <strong>Double-click</strong> a bend point to remove it.</div>
           </div>
         </div>
 

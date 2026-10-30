@@ -1883,22 +1883,15 @@ function handleCanvasMouseDown(e) {
       var wireColorPicker = document.getElementById('wire-color-picker');
       if (wireColorPicker) wireColorPicker.value = selectedWire.color || getDefaultWireColor(selectedWire);
       if (wireHit.type === 'waypoint') {
-        saveState();
-        if (typeof computeWireRenderPaths === 'function') computeWireRenderPaths(wires);
-        wires.forEach(function(w) {
-          if (w !== wireHit.wire && w._renderPts) {
-            w._dragLockedRenderPts = w._renderPts.map(function(p) { return { x: p.x, y: p.y }; });
-          }
-        });
-        var logicalWp = wireHit.wire.waypoints[wireHit.wpIndex];
-        dragging = {
-          type: 'wire-waypoint',
-          wire: wireHit.wire,
-          wpIndex: wireHit.wpIndex,
-          renderOffsetX: logicalWp.x - wireHit.renderX,
-          renderOffsetY: logicalWp.y - wireHit.renderY
-        };
-        canvas.style.cursor = 'grabbing';
+        // Corners are selection targets only. Dragging a corner freely is what
+        // produced diagonal wires; bends are made with the segment diamonds.
+        selectedWire = wireHit.wire;
+        var cornerColorPicker = document.getElementById('wire-color-picker');
+        if (cornerColorPicker) {
+          cornerColorPicker.value = wireHit.wire.color || getDefaultWireColor(wireHit.wire);
+        }
+        updateStatus('Wire selected — drag a diamond to bend it');
+        draw();
         return;
       }
 
@@ -2135,10 +2128,31 @@ function handleCanvasDoubleClick(e) {
       var dx = x - wps[wpi].x;
       var dy = y - wps[wpi].y;
       if (dx * dx + dy * dy < 100) {
-        saveState();
-        w.autoRoute = false;
-        w.waypoints.splice(wpi, 1);
-        updateStatus('Waypoint removed');
+        var originalWaypoints = (w.waypoints || []).map(function(point) {
+          return { x: point.x, y: point.y };
+        });
+        // Work on a copy first so the undo snapshot below captures the route
+        // exactly as it was before the bend is removed.
+        var candidateWaypoints = originalWaypoints.slice();
+        candidateWaypoints.splice(wpi, 1);
+
+        // Removing a corner can leave a diagonal between its neighbours, so
+        // rebuild the route orthogonally.
+        var remainingPath = [{ x: w.x1, y: w.y1 }]
+          .concat(candidateWaypoints)
+          .concat([{ x: w.x2, y: w.y2 }]);
+        var rebuiltWaypoints = simplifyWirePath(remainingPath).slice(1, -1);
+
+        if (rebuiltWaypoints.length >= originalWaypoints.length) {
+          // The bend is required to keep the wire horizontal/vertical.
+          updateStatus('Bend kept: the wire needs a corner here. Use Reset wire to clear all bends.');
+        } else {
+          // Snapshot BEFORE mutating, so Undo restores the previous route.
+          saveState();
+          w.autoRoute = false;
+          w.waypoints = rebuiltWaypoints;
+          updateStatus('Bend removed');
+        }
         draw();
         return;
       }
