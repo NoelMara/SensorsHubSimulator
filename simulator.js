@@ -31,6 +31,7 @@ let lastExceptionType = '';
 let lastExceptionMessage = '';
 let activeSwitchFrame = null;
 let reportedUnsupportedStatements = {};
+let programStartTime = 0;
 
 function mpExceptionType() { return lastExceptionType; }
 function mpExceptionMessage() { return lastExceptionMessage; }
@@ -454,13 +455,156 @@ function resolvePin(arg) {
   return isNaN(n) ? null : n;
 }
 
+function simulatorNowMillis() {
+  return Math.max(0, Date.now() - programStartTime);
+}
+
+function resolveArrayIndex(token) {
+  var text = String(token == null ? '' : token).trim();
+  if (/^\d+$/.test(text)) return Number(text);
+  if (variables[text] !== undefined) {
+    var value = Number(variables[text]);
+    return isFinite(value) ? Math.trunc(value) : null;
+  }
+  return null;
+}
+
+function readArrayElement(name, indexToken) {
+  var array = variables[name];
+  if (!Array.isArray(array)) return undefined;
+  var index = resolveArrayIndex(indexToken);
+  if (index === null || index < 0) return undefined;
+  return array[index] === undefined ? 0 : array[index];
+}
+
+// Apply a transform only to the parts of an expression that are outside quoted
+// strings, so text like "values[0]" or "min(1,2)" prints literally.
+function transformOutsideStrings(text, transform) {
+  var source = String(text == null ? '' : text);
+  var result = '';
+  var buffer = '';
+  var quote = null;
+
+  function flush() {
+    if (!buffer) return;
+    result += transform(buffer);
+    buffer = '';
+  }
+
+  for (var i = 0; i < source.length; i++) {
+    var ch = source[i];
+    if (quote) {
+      result += ch;
+      if (ch === '\\' && i + 1 < source.length) {
+        result += source.charAt(++i);
+        continue;
+      }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      flush();
+      quote = ch;
+      result += ch;
+      continue;
+    }
+    buffer += ch;
+  }
+  flush();
+  return result;
+}
+
+// Resolve array reads such as numbers[0] or numbers[i] to their values.
+function replaceArrayReferences(text) {
+  return transformOutsideStrings(text, function(fragment) {
+    return fragment.replace(
+      /\b([A-Za-z_]\w*)\s*\[\s*(\d+|[A-Za-z_]\w*)\s*\]/g,
+      function(match, name, indexToken) {
+        var value = readArrayElement(name, indexToken);
+        return value === undefined ? match : String(value);
+      }
+    );
+  });
+}
+
+function evaluateMathCall(name, argsText) {
+  var args = String(argsText || '').trim() === ''
+    ? []
+    : splitCallArguments(argsText).map(function(arg) {
+        var value = evaluateMath(arg);
+        if (value === null) value = parseFloat(parseValue(arg));
+        return isFinite(value) ? value : 0;
+      });
+
+  function numberAt(index) {
+    var value = args[index];
+    return typeof value === 'number' && isFinite(value) ? value : 0;
+  }
+
+  switch (name) {
+    case 'millis': return Math.round(simulatorNowMillis());
+    case 'micros': return Math.round(simulatorNowMillis() * 1000);
+    case 'abs': return Math.abs(numberAt(0));
+    case 'min': return Math.min.apply(null, args.map(function(_, index) { return numberAt(index); }));
+    case 'max': return Math.max.apply(null, args.map(function(_, index) { return numberAt(index); }));
+    case 'round': return Math.round(numberAt(0));
+    case 'floor': return Math.floor(numberAt(0));
+    case 'ceil': return Math.ceil(numberAt(0));
+    case 'sqrt': return Math.sqrt(Math.max(0, numberAt(0)));
+    case 'pow': return Math.pow(numberAt(0), numberAt(1));
+    case 'random':
+      if (!args.length) return Math.floor(Math.random() * 32768);
+      if (args.length === 1) return Math.floor(Math.random() * Math.max(0, numberAt(0)));
+      return numberAt(0) + Math.floor(Math.random() * Math.max(0, numberAt(1) - numberAt(0)));
+    default: return null;
+  }
+}
+
+function expandMathInFragment(fragment) {
+  var text = fragment;
+  var pattern = /\b(abs|min|max|round|floor|ceil|sqrt|pow|random|millis|micros)\s*\(([^()]*)\)/i;
+  var match = text.match(pattern);
+  var guard = 0;
+
+  while (match && guard++ < 60) {
+    var value = evaluateMathCall(match[1].toLowerCase(), match[2]);
+    var replacement = (value === null || !isFinite(value)) ? '0' : String(value);
+    text = text.replace(match[0], replacement);
+    match = text.match(pattern);
+  }
+  return text;
+}
+
+// Replace supported math calls (abs, min, millis, ...) with their values while
+// leaving quoted strings untouched.
+function expandMathCalls(expr) {
+  return transformOutsideStrings(expr, expandMathInFragment);
+}
+
+function noteUnresolvedExpression(argText, rendered, phase) {
+  var text = String(argText || '').trim();
+  var looksLikeCall = /^[A-Za-z_]\w*\s*\(/.test(text);
+  var looksLikeArray = /\w+\s*\[\s*[A-Za-z_]\w*\s*\]/.test(text);
+  if (!looksLikeCall && !looksLikeArray) return false;
+  if (String(rendered == null ? '' : rendered).trim() !== text) return false;
+
+  var key = phase + '|expr|' + text;
+  if (reportedUnsupportedStatements[key]) return true;
+  reportedUnsupportedStatements[key] = true;
+  serialWrite('Error: cannot evaluate "' + text + '" (in ' + phase + ')', true);
+  return true;
+}
+
 function parseValue(str) {
   str = String(str || '').trim().replace(/;$/, '');
   str = applySimpleCastExpression(str);
+  str = expandMathCalls(str);
+  str = replaceArrayReferences(str);
 
-  const arrayRef = str.match(/^(\w+)\s*\[\s*(\d+)\s*\]$/);
-  if (arrayRef && Array.isArray(variables[arrayRef[1]])) {
-    return variables[arrayRef[1]][Number(arrayRef[2])] ?? 0;
+  const arrayRef = str.match(/^(\w+)\s*\[\s*(\d+|[A-Za-z_]\w*)\s*\]$/);
+  if (arrayRef) {
+    const arrayValue = readArrayElement(arrayRef[1], arrayRef[2]);
+    if (arrayValue !== undefined) return arrayValue;
   }
 
   if (variables[str] !== undefined) return variables[str];
@@ -491,9 +635,8 @@ function parseContent(content) {
   content = resolveSimulatorRuntimeCalls(String(content || '').trim());
   content = applySimpleCastExpression(content);
   content = content.replace(/^F\((.+)\)$/, '$1');
-  content = content.replace(/\b(\w+)\s*\[\s*(\d+)\s*\]/g, function(_, name, index) {
-    return Array.isArray(variables[name]) ? String(variables[name][Number(index)] ?? 0) : name + '[' + index + ']';
-  });
+  content = expandMathCalls(content);
+  content = replaceArrayReferences(content);
 
   content = content.replace(/String\(([^)]+)\)/g, function(_, inner) {
     const v = inner.trim();
@@ -535,9 +678,7 @@ function parseContent(content) {
 }
 
 function resolveArrayReferencesInLine(line) {
-  return String(line || '').replace(/\b(\w+)\s*\[\s*(\d+)\s*\]/g, function(_, name, index) {
-    return Array.isArray(variables[name]) ? String(variables[name][Number(index)] ?? 0) : name + '[' + index + ']';
-  });
+  return replaceArrayReferences(line);
 }
 
 function evaluateLiteral(str) {
@@ -1360,6 +1501,9 @@ function evalCondition(cond) {
     cond = cond.replace(/Serial\.available\(\)/g, String(serialRxBuffer.length));
   }
 
+  cond = expandMathCalls(cond);
+  cond = replaceArrayReferences(cond);
+
   for (const k in variables) {
     const v = variables[k];
     const rx = new RegExp('\\b' + k + '\\b', 'g');
@@ -2140,6 +2284,8 @@ function evaluateMath(expr) {
   expr = String(expr || '').trim().replace(/;$/, '');
   if (/^\(\s*char\s*\)/i.test(expr)) return null;
   expr = applySimpleCastExpression(expr);
+  expr = expandMathCalls(expr);
+  expr = replaceArrayReferences(expr);
   if (typeof expr === 'number') return expr;
   let e = normalizeEvaluatorExpression(expr);
 
@@ -3363,6 +3509,7 @@ function runCode() {
   defines = {};
   pinModes = {};
   pinValues = {};
+  programStartTime = Date.now();
   setupLines = [];
   loopLines = [];
   userFunctions = {};
@@ -3909,13 +4056,15 @@ function executeLineWithDelay(line, phase, sourceLine) {
 
   const spln = l.match(/^Serial\.println\s*\(\s*(.*?)\s*\)$/);
   if (spln) {
-    serialWrite(parseContent(spln[1]), true);
+    var printedLine = parseContent(spln[1]);
+    if (!noteUnresolvedExpression(spln[1], printedLine, phase)) serialWrite(printedLine, true);
     return true;
   }
 
   const sp = l.match(/^Serial\.print\s*\(\s*(.*?)\s*\)$/);
   if (sp) {
-    serialWrite(parseContent(sp[1]), false);
+    var printedText = parseContent(sp[1]);
+    if (!noteUnresolvedExpression(sp[1], printedText, phase)) serialWrite(printedText, false);
     return true;
   }
 
@@ -4192,14 +4341,13 @@ function executeLineWithDelay(line, phase, sourceLine) {
     return true;
   }
 
-  const arrayAssign = l.match(/^(\w+)\s*\[\s*(\d+)\s*\]\s*([+\-*\/]?=)\s*(.+)$/);
+  const arrayAssign = l.match(/^(\w+)\s*\[\s*(\d+|[A-Za-z_]\w*)\s*\]\s*([+\-*\/]?=)\s*(.+)$/);
   if (arrayAssign && Array.isArray(variables[arrayAssign[1]])) {
     const name = arrayAssign[1];
-    const index = Number(arrayAssign[2]);
+    const index = resolveArrayIndex(arrayAssign[2]);
+    if (index === null) return true;
     const rhs = arrayAssign[4].replace(/;$/, '').trim();
-    const resolvedArrayRhs = rhs.replace(/\b(\w+)\s*\[\s*(\d+)\s*\]/g, function(_, refName, refIndex) {
-      return Array.isArray(variables[refName]) ? String(variables[refName][Number(refIndex)] ?? 0) : refName + '[' + refIndex + ']';
-    });
+    const resolvedArrayRhs = replaceArrayReferences(rhs);
     const value = evaluateMath(resolveSimulatorRuntimeCalls(resolvedArrayRhs));
     const nextValue = value === null ? evaluateLiteral(resolvedArrayRhs) : value;
     if (index >= 0 && index < variables[name].length) {
