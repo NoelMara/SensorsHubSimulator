@@ -1375,6 +1375,11 @@ function executeStructuredLines(sourceLines, phase, blockPath) {
   return executeStructuredLinesFrom(sourceLines, phase, 0, blockPath);
 }
 
+function sourceLineIndicesForPhase(phase, index) {
+  var map = phase === 'setup' ? setupSourceLines : loopSourceLines;
+  return map[index];
+}
+
 function updateStructuredExecutionHighlight(sourceLines, index, phase) {
   if (typeof updateExecutionHighlight !== 'function') return;
   const fullLines = phase === 'setup' ? setupLines : loopLines;
@@ -1450,7 +1455,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath) {
         }
       }
 
-      const ok = executeLineWithDelay(l, phase);
+      const ok = executeLineWithDelay(l, phase, sourceLineIndicesForPhase(phase, i));
       if (ok === false) return { nextIdx: i, stopped: true };
       if (isDelayActive) return { nextIdx: i + 1, delayed: true };
 
@@ -1669,6 +1674,12 @@ function resolveLoopNumericValue(expr, localValues) {
 
 function parseSimpleForHeader(line) {
   var m = String(line || '').trim().match(/^for\s*\(\s*(?:int\s+)?(\w+)\s*=\s*(.+?)\s*;\s*\1\s*([<>]=?)\s*(.+?)\s*;\s*\1\s*(\+\+|--|\+=\s*.+?|-=\s*.+?)\s*\)\s*\{?\s*$/);
+  if (!m) {
+    var expanded = String(line || '').trim().match(/^for\s*\(\s*(?:int\s+)?(\w+)\s*=\s*(.+?)\s*;\s*\1\s*([<>]=?)\s*(.+?)\s*;\s*\1\s*=\s*\1\s*([+-])\s*(.+?)\s*\)\s*\{?\s*$/);
+    if (expanded) {
+      m = [expanded[0], expanded[1], expanded[2], expanded[3], expanded[4], '= ' + expanded[5] + ' ' + expanded[6]];
+    }
+  }
   if (!m) return null;
 
   var stepText = m[5].replace(/\s+/g, '');
@@ -1679,6 +1690,12 @@ function parseSimpleForHeader(line) {
   else if (/^-=.+$/.test(stepText)) {
     var decrement = resolveLoopNumericValue(stepText.slice(2));
     step = decrement === null ? null : -decrement;
+  }
+
+  if (!step && /^=\s*[+-].+$/.test(stepText)) {
+    var expandedStep = stepText.match(/^=\s*([+-])\s*(.+)$/);
+    var expandedValue = expandedStep ? resolveLoopNumericValue(expandedStep[2]) : null;
+    step = expandedValue === null ? null : (expandedStep[1] === '+' ? expandedValue : -expandedValue);
   }
 
   var start = resolveLoopNumericValue(m[2]);
@@ -3467,7 +3484,7 @@ function tick() {
         }
       }
 
-      const ok = executeLineWithDelay(setupLines[currentSetupLineIndex], 'setup');
+      const ok = executeLineWithDelay(setupLines[currentSetupLineIndex], 'setup', setupSourceLines[currentSetupLineIndex]);
       if (!isDelayActive && ok !== false) currentSetupLineIndex++;
       return;
     }
@@ -3534,7 +3551,7 @@ function tick() {
       }
     }
 
-    const ok = executeLineWithDelay(loopLines[currentLineIndex], 'loop');
+    const ok = executeLineWithDelay(loopLines[currentLineIndex], 'loop', loopSourceLines[currentLineIndex]);
     if (!isDelayActive && ok !== false) currentLineIndex++;
     if (typeof draw === 'function') draw();
   } catch (err) {
@@ -3589,7 +3606,7 @@ function stopCode() {
 // EXECUTE LINE WITH DELAY
 // ==========================================
 
-function executeLineWithDelay(line, phase) {
+function executeLineWithDelay(line, phase, sourceLine) {
   const l = String(line || '').trim().replace(/;$/, '');
   if (!l || l === '{' || l === '}' || l.startsWith('//')) return true;
 
@@ -3909,6 +3926,12 @@ function executeLineWithDelay(line, phase) {
     return true;
   }
 
+  const unsupportedMessage = 'unsupported statement "' + l + '" (in ' + phase + ')';
+  serialWrite('Error: ' + unsupportedMessage, true);
+  updateStatus('Unsupported statement');
+  if (Number.isInteger(sourceLine) && typeof showCodeError === 'function') {
+    showCodeError(sourceLine + 1, unsupportedMessage);
+  }
   return true;
 }
 
