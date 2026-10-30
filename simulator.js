@@ -3207,7 +3207,10 @@ function validateSourceCode(sourceCode, mode) {
         }
       }
       const trimmed = codeLine.trim();
-      if (/}\s*[A-Za-z_]/.test(trimmed) && !/}\s*else\b/.test(trimmed)) {
+      if (/^void\s+(setup|loop)\s*\([^)]*\)\s*\{.+\}\s*$/.test(trimmed)) {
+        return 'Put each statement on its own line (line ' + (lineIndex + 1) + ')';
+      }
+      if (/}\s*[A-Za-z_]/.test(trimmed) && !/}\s*(else|catch)\b/.test(trimmed)) {
         return 'Code outside function (line ' + (lineIndex + 1) + ')';
       }
       if (depth === 0 && executableAtTopLevel.test(trimmed)) return 'Code outside function';

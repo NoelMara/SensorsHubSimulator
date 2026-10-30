@@ -82,7 +82,7 @@ window.HELP_MODAL_HTML = `
       </div>
 
       <div class="help-pane" id="help-pane-wiring">
-        <p class="help-intro">Wires connect pins and automatically choose a clear path around the parts. SensorsHub also checks each component's required pins before that part can respond reliably.</p>
+        <p class="help-intro">Wires connect pins and automatically choose a clear path around the parts. Wires are always horizontal or vertical, and they may cross each other; only runs that would overlap are spread apart. SensorsHub also checks each component's required pins before that part can respond reliably.</p>
 
         <div class="help-step">
           <div class="help-step-badge">&#12336;</div>
@@ -104,7 +104,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge bend-badge">&#8618;</div>
           <div class="help-step-content">
             <div class="help-step-title">Bend wires around components</div>
-            <div class="help-step-desc">Drag a <strong>diamond</strong> on a wire segment to slide that straight piece sideways; the wire adds the two corners for you. <strong>Double-click</strong> a bend point to remove it.</div>
+            <div class="help-step-desc">Drag a <strong>&#9670; diamond</strong> on a straight wire piece to slide it sideways; the wire adds the two corners for you. Click a <strong>&#9679; corner</strong> to select the wire, or double-click it to remove that bend (if the wire still needs a corner, it stays).</div>
           </div>
         </div>
 
@@ -112,7 +112,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#8869;</div>
           <div class="help-step-content">
             <div class="help-step-title">Show or hide wire controls</div>
-            <div class="help-step-desc">Open the <strong>&#8943; More</strong> menu and choose <strong>&#8869; Show wire controls</strong> to show or hide bend diamonds, endpoint circles, and wire editing handles. This changes only the display.</div>
+            <div class="help-step-desc">Open the <strong>&#8943; More</strong> menu and choose <strong>&#8869; Show wire controls</strong> to show or hide bend <strong>&#9670; diamonds</strong> (draggable) and <strong>&#9679; corner</strong> markers (click to select). This changes only the display.</div>
           </div>
         </div>
 
@@ -128,7 +128,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#8635;</div>
           <div class="help-step-content">
             <div class="help-step-title">Reset a wire route</div>
-            <div class="help-step-desc">Click a wire, open the <strong>⋯ More</strong> menu, then choose <strong>Reset selected wire</strong>. This removes manual bends and creates a fresh automatic route without disconnecting the pins.</div>
+            <div class="help-step-desc">Click a wire, open the <strong>&#8943; More</strong> menu, then choose <strong>Reset selected wire</strong>. This removes manual bends and creates a fresh automatic route without disconnecting the pins. Choose <strong>Reset all wire routes</strong> to do the same for every wire at once.</div>
           </div>
         </div>
 
@@ -136,7 +136,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#9673;</div>
           <div class="help-step-content">
             <div class="help-step-title">Change a wire color</div>
-            <div class="help-step-desc">Choose <strong>&#10021; Move</strong>, then click a wire waypoint or a connected pin to select that wire. Open the <strong>&#8943; More</strong> menu and choose <strong>Wire color</strong>. Use <strong>Reset wire color</strong> to restore the automatic default color.</div>
+            <div class="help-step-desc">Choose <strong>&#10021; Move</strong>, then click the wire line or a <strong>&#9679; corner</strong> to select that wire. Open the <strong>&#8943; More</strong> menu and choose <strong>Wire color</strong>. Use <strong>Reset wire color</strong> to restore the automatic default color.</div>
           </div>
         </div>
 
@@ -154,6 +154,10 @@ window.HELP_MODAL_HTML = `
             <div class="help-step-title">Clear the entire canvas</div>
             <div class="help-step-desc">Open the <strong>⋯ More</strong> menu and choose <strong>Clear all</strong> to remove every component and wire from the canvas.</div>
           </div>
+        </div>
+
+        <div class="help-tip">
+          &#127912; <strong>Wire colors:</strong> the color is chosen automatically from the pin type &mdash; red is power, brown is ground, green is a signal, cyan is UART. Use <strong>&#8943; More &rarr; Wire color</strong> to change a selected wire.
         </div>
 
         <div class="help-tip">
@@ -200,8 +204,12 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">&#10003;</div>
           <div class="help-step-content">
             <div class="help-step-title">What the simulator can run</div>
-            <div class="help-step-desc">Arduino: <code>setup()</code>/<code>loop()</code>, <code>#define</code>, <code>pinMode</code>, <code>digitalRead</code>/<code>digitalWrite</code>, <code>analogRead</code>, <code>delay</code>, <code>Serial</code>, <code>if</code>/<code>for</code>/<code>while</code>, and libraries <code>DHT</code>, <code>Wire</code>, <code>Adafruit_SSD1306</code>, and <code>Servo</code>. MicroPython: <code>machine.Pin</code>, <code>time.sleep</code>, <code>print</code>, <code>dht</code>, and <code>ssd1306</code>. Unknown <code>#include</code> or <code>import</code> lines stop Run with a clear error instead of being ignored.</div>
+            <div class="help-step-desc">Arduino: <code>setup()</code>/<code>loop()</code>, <code>#define</code>, <code>pinMode</code>, <code>digitalRead</code>/<code>digitalWrite</code>, <code>analogRead</code>/<code>analogWrite</code>, <code>delay</code>, <code>Serial</code>, <code>if</code>/<code>else</code>, <code>for</code> (including <code>i = i + 1</code>), <code>while</code>, <code>switch</code>/<code>case</code>, <code>try</code>/<code>catch</code>, fixed-size arrays with constant indexes, simple helper functions, and libraries <code>DHT</code>, <code>Wire</code>, <code>Adafruit_SSD1306</code>, and <code>Servo</code>. MicroPython: <code>machine.Pin</code>, <code>time.sleep</code>, <code>print</code>, <code>dht</code>, and <code>ssd1306</code>. Unknown <code>#include</code> or <code>import</code> lines stop Run with a clear error, and any line the simulator cannot run is reported in the <strong>Serial</strong> monitor instead of being silently skipped.</div>
           </div>
+        </div>
+
+        <div class="help-tip">
+          &#128221; <strong>Code layout:</strong> write one statement per line, and put <code>{</code>, <code>}</code>, <code>else</code>, and <code>catch</code> on their own lines. Blocks written on a single line (such as <code>if (x) { y(); }</code> or <code>void setup() { ... }</code>) are not simulated and are reported as errors.
         </div>
 
         <div class="help-tip">
@@ -326,8 +334,9 @@ window.HELP_MODAL_HTML = `
           <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>Esc</kbd></div><div class="help-shortcut-label">Cancel the current wire or close the help modal</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys"><kbd>Scroll</kbd></div><div class="help-shortcut-label">Zoom in / out on the canvas</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Hover near pin</div><div class="help-shortcut-label">Show pin tooltip with name, type, and connection status</div></div>
-          <div class="help-shortcut-row"><div class="help-shortcut-keys">Drag midpoint</div><div class="help-shortcut-label">Bend a wire segment</div></div>
-          <div class="help-shortcut-row"><div class="help-shortcut-keys">Double-click bend</div><div class="help-shortcut-label">Remove a bend point and straighten the wire</div></div>
+          <div class="help-shortcut-row"><div class="help-shortcut-keys">Click wire</div><div class="help-shortcut-label">Select a wire to change its color or reset its route</div></div>
+          <div class="help-shortcut-row"><div class="help-shortcut-keys">Drag &#9670; diamond</div><div class="help-shortcut-label">Slide a straight wire piece to bend it</div></div>
+          <div class="help-shortcut-row"><div class="help-shortcut-keys">Double-click &#9679; corner</div><div class="help-shortcut-label">Remove a bend (kept if the wire needs a corner)</div></div>
         </div>
 
         <div class="help-shortcut-section">Mobile</div>
@@ -336,7 +345,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-shortcut-row"><div class="help-shortcut-keys">{ } Code tab</div><div class="help-shortcut-label">Switch to code editor view</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Pinch gesture</div><div class="help-shortcut-label">Zoom in / out on the canvas</div></div>
           <div class="help-shortcut-row"><div class="help-shortcut-keys">Tap a pin, then wait</div><div class="help-shortcut-label">Show pin details after 0.8 seconds; quick taps remain available for wiring</div></div>
-          <div class="help-shortcut-row"><div class="help-shortcut-keys">Drag midpoint</div><div class="help-shortcut-label">Bend a wire segment</div></div>
+          <div class="help-shortcut-row"><div class="help-shortcut-keys">Drag &#9670; diamond</div><div class="help-shortcut-label">Slide a straight wire piece to bend it</div></div>
         </div>
 
         <div class="help-tip">
@@ -383,7 +392,7 @@ window.HELP_MODAL_HTML = `
           <div class="help-step-badge">5</div>
           <div class="help-step-content">
             <div class="help-step-title">Keep MicroPython code simple</div>
-            <div class="help-step-desc">You can write MicroPython directly at the top level; <code>setup()</code> and <code>loop()</code> functions are optional. Use one main <code>while True:</code> loop, one statement per line, and basic <code>if / elif / else</code> logic. Basic <code>try/except</code> is supported for simulator/runtime errors, including inside simple <code>if</code> blocks. Avoid advanced features such as classes and complex helper functions unless you have tested them in this simulator.</div>
+            <div class="help-step-desc">You can write MicroPython directly at the top level; <code>setup()</code> and <code>loop()</code> functions are optional. Use one main <code>while True:</code> loop, one statement per line, and basic <code>if / elif / else</code> logic. Basic <code>try/except</code> is supported for simulator/runtime errors, including inside simple <code>if</code> blocks. Simple helper functions without arguments are supported. Avoid classes and functions with parameters unless you have tested them in this simulator.</div>
           </div>
         </div>
 
