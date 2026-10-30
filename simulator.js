@@ -4091,6 +4091,14 @@ function executeLineWithDelay(line, phase, sourceLine) {
     return true;
   }
 
+  const increment = l.match(/^(\+\+|--)?(\w+)(\+\+|--)?;?$/);
+  if (increment && (increment[1] || increment[3])) {
+    const name = increment[2];
+    const amount = (increment[1] || increment[3]) === '++' ? 1 : -1;
+    variables[name] = Number(variables[name] || 0) + amount;
+    return true;
+  }
+
   const varDecl = l.match(/^(?:(?:const\s+)?(?:int|float|long|byte|double|String|unsigned\s+long|bool|char)\s+)?(\w+)\s*([+\-*\/]?=)\s*(.+)$/);
   if (varDecl) {
     const vname = varDecl[1];
