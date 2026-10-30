@@ -30,6 +30,7 @@ let runtimeWhileFrames = {};
 let lastExceptionType = '';
 let lastExceptionMessage = '';
 let activeSwitchFrame = null;
+let reportedUnsupportedStatements = {};
 
 function mpExceptionType() { return lastExceptionType; }
 function mpExceptionMessage() { return lastExceptionMessage; }
@@ -1399,6 +1400,15 @@ function sourceLineIndicesForPhase(phase, index) {
   return map[index];
 }
 
+// Map an index inside any (possibly nested) line array back to the original
+// 0-based editor line. `sourceIndices` is the matching map for that line array;
+// it is what keeps error highlighting accurate inside nested blocks.
+function resolveSourceLine(sourceIndices, phase, index) {
+  if (sourceIndices && Number.isInteger(sourceIndices[index])) return sourceIndices[index];
+  if (phase === 'setup' || phase === 'loop') return sourceLineIndicesForPhase(phase, index);
+  return index;
+}
+
 function expandUserFunctionCalls(lines, sourceLines, callStack) {
   var expandedLines = [];
   var expandedSources = [];
@@ -1470,7 +1480,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
       }
 
       if (/^try\s*\{?\s*$/.test(l)) {
-        const consumed = handleTryBlock(i, sourceLines, phase, blockPath);
+        const consumed = handleTryBlock(i, sourceLines, phase, blockPath, sourceIndices);
         if (consumed > 0) {
           if (isDelayActive) return { nextIdx: i, delayed: true };
           i += consumed;
@@ -1479,7 +1489,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
       }
 
       if (/^for\s*\(/.test(l)) {
-       const consumed = handleForBlock(i, sourceLines, phase, blockPath);
+       const consumed = handleForBlock(i, sourceLines, phase, blockPath, sourceIndices);
         if (consumed > 0) {
           if (isDelayActive) return { nextIdx: i, delayed: true };
           i += consumed;
@@ -1488,7 +1498,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
       }
 
       if (/^while\s*\(/.test(l)) {
-        const consumed = handleWhileBlock(i, sourceLines, phase, blockPath);
+        const consumed = handleWhileBlock(i, sourceLines, phase, blockPath, sourceIndices);
         if (consumed > 0) {
           if (isDelayActive) return { nextIdx: i, delayed: true };
           i += consumed;
@@ -1497,7 +1507,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
       }
 
       if (/^if\s*\(/.test(l)) {
-        const consumed = handleIfBlock(i, sourceLines, phase, blockPath);
+        const consumed = handleIfBlock(i, sourceLines, phase, blockPath, sourceIndices);
         if (consumed > 0) {
           if (isDelayActive) return { nextIdx: i, delayed: true };
           i += consumed;
@@ -1506,7 +1516,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
       }
 
       if (/^switch\s*\(/.test(l)) {
-        const consumed = handleSwitchBlock(i, sourceLines, phase, blockPath);
+        const consumed = handleSwitchBlock(i, sourceLines, phase, blockPath, sourceIndices);
         if (consumed > 0) {
           if (isDelayActive) return { nextIdx: i, delayed: true };
           i += consumed;
@@ -1517,9 +1527,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
       const ok = executeLineWithDelay(
         l,
         phase,
-        sourceIndices && Number.isInteger(sourceIndices[i])
-          ? sourceIndices[i]
-          : sourceLineIndicesForPhase(phase, i)
+        resolveSourceLine(sourceIndices, phase, i)
       );
       if (ok === false) return { nextIdx: i, stopped: true };
       if (isDelayActive) return { nextIdx: i + 1, delayed: true };
@@ -1539,7 +1547,7 @@ function executeStructuredLinesFrom(sourceLines, phase, startIdx, blockPath, sou
   return { nextIdx: sourceLines.length };
 }
 
-function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
+function handleIfBlock(startIdx, sourceLines, phase, blockPath, sourceIndices) {
   const firstLine = String(sourceLines[startIdx] || '').trim();
   if (!/^if\s*\(/.test(firstLine)) return 0;
 
@@ -1605,7 +1613,7 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
 
       if (bl !== '{' && bl !== '}') {
         bodyLines.push(bl);
-        bodyIndices.push(i);
+        bodyIndices.push(resolveSourceLine(sourceIndices, phase, i));
       }
       i++;
     }
@@ -1628,7 +1636,7 @@ function handleIfBlock(startIdx, sourceLines, phase, blockPath) {
   return i - startIdx;
 }
 
-function handleSwitchBlock(startIdx, sourceLines, phase, blockPath) {
+function handleSwitchBlock(startIdx, sourceLines, phase, blockPath, sourceIndices) {
   const header = String(sourceLines[startIdx] || '').trim();
   const match = header.match(/^switch\s*\((.+)\)\s*\{?\s*$/);
   if (!match) return 0;
@@ -1636,7 +1644,7 @@ function handleSwitchBlock(startIdx, sourceLines, phase, blockPath) {
   if (activeSwitchFrame && activeSwitchFrame.startIdx !== startIdx) activeSwitchFrame = null;
   const block = activeSwitchFrame && activeSwitchFrame.startIdx === startIdx
     ? activeSwitchFrame.block
-    : collectStructuredBlockBody(sourceLines, startIdx);
+    : collectStructuredBlockBody(sourceLines, startIdx, sourceIndices, phase);
   if (!activeSwitchFrame) activeSwitchFrame = { startIdx: startIdx, block: block, next: 0 };
   const switchValue = evaluateMath(match[1]) ?? parseValue(match[1]);
   let selectedBody = null;
@@ -1659,7 +1667,7 @@ function handleSwitchBlock(startIdx, sourceLines, phase, blockPath) {
       }
       if (caseMatch[2]) {
         currentBody.push(caseMatch[2]);
-        currentIndices.push(startIdx + 1 + i);
+        currentIndices.push(resolveSourceLine(sourceIndices, phase, startIdx + 1 + i));
       }
       continue;
     }
@@ -1671,13 +1679,13 @@ function handleSwitchBlock(startIdx, sourceLines, phase, blockPath) {
       defaultIndices = currentIndices;
       if (defaultMatch[1]) {
         currentBody.push(defaultMatch[1]);
-        currentIndices.push(startIdx + 1 + i);
+        currentIndices.push(resolveSourceLine(sourceIndices, phase, startIdx + 1 + i));
       }
       continue;
     }
     if (currentBody && !/^break\s*;?$/.test(line)) {
       currentBody.push(line);
-      currentIndices.push(startIdx + 1 + i);
+      currentIndices.push(resolveSourceLine(sourceIndices, phase, startIdx + 1 + i));
     }
   }
 
@@ -1734,7 +1742,7 @@ function isStandaloneClosingBraceLine(line) {
   return l === '}' || l === '};';
 }
 
-function collectStructuredBlockBody(sourceLines, headerIdx) {
+function collectStructuredBlockBody(sourceLines, headerIdx, sourceIndices, phase) {
   var bodyLines = [];
   var bodyIndices = [];
   var i = headerIdx + 1;
@@ -1762,7 +1770,7 @@ function collectStructuredBlockBody(sourceLines, headerIdx) {
 
     if (bl !== '{' && bl !== '}') {
       bodyLines.push(bl);
-      bodyIndices.push(i);
+      bodyIndices.push(resolveSourceLine(sourceIndices, phase, i));
     }
     i++;
   }
@@ -1780,10 +1788,10 @@ function findNextExecutableLine(sourceLines, idx) {
   return i;
 }
 
-function handleTryBlock(startIdx, sourceLines, phase, blockPath) {
+function handleTryBlock(startIdx, sourceLines, phase, blockPath, sourceIndices) {
   if (!isTryStartLine(sourceLines[startIdx])) return 0;
   var path = (blockPath || '') + '/try' + startIdx;
-  var tryBlock = collectStructuredBlockBody(sourceLines, startIdx);
+  var tryBlock = collectStructuredBlockBody(sourceLines, startIdx, sourceIndices, phase);
 
   var catchIdx = findNextExecutableLine(sourceLines, tryBlock.nextIdx);
   var catchLines = [];
@@ -1792,7 +1800,7 @@ function handleTryBlock(startIdx, sourceLines, phase, blockPath) {
 
   if (catchIdx < sourceLines.length && isCatchStartLine(sourceLines[catchIdx])) {
     hasCatch = true;
-    var catchBlock = collectStructuredBlockBody(sourceLines, catchIdx);
+    var catchBlock = collectStructuredBlockBody(sourceLines, catchIdx, sourceIndices, phase);
     catchLines = catchBlock.bodyLines;
     endIdx = catchBlock.nextIdx;
   }
@@ -1885,13 +1893,13 @@ function isForConditionTrue(value, op, end) {
   return false;
 }
 
-function handleWhileBlock(startIdx, sourceLines, phase, blockPath) {
+function handleWhileBlock(startIdx, sourceLines, phase, blockPath, sourceIndices) {
   var header = String(sourceLines[startIdx] || '').trim();
   var m = header.match(/^while\s*\((.+)\)\s*\{?\s*$/);
   if (!m) return 0;
 
   var path = (blockPath || '') + '/while' + startIdx;   
-  var block = collectStructuredBlockBody(sourceLines, startIdx);
+  var block = collectStructuredBlockBody(sourceLines, startIdx, sourceIndices, phase);
   var maxIterations = 1000;
   var frameKey = phase + ':' + path;   
   var frame = runtimeWhileFrames[frameKey] || { bodyIdx: 0, iterationCount: 0 };
@@ -1922,11 +1930,11 @@ function handleWhileBlock(startIdx, sourceLines, phase, blockPath) {
   return block.nextIdx - startIdx;
 }
 
-function handleForBlock(startIdx, sourceLines, phase, blockPath) {
+function handleForBlock(startIdx, sourceLines, phase, blockPath, sourceIndices) {
   var info = parseSimpleForHeader(sourceLines[startIdx]);
   if (!info) return 0;
   var path = (blockPath || '') + '/for' + startIdx;
-  var block = collectStructuredBlockBody(sourceLines, startIdx);
+  var block = collectStructuredBlockBody(sourceLines, startIdx, sourceIndices, phase);
   var maxIterations = 1000;
   var iterationCount = 0;
 
@@ -3355,6 +3363,7 @@ function runCode() {
   setupLines = [];
   loopLines = [];
   userFunctions = {};
+  reportedUnsupportedStatements = {};
   currentSetupLineIndex = 0;
   currentLineIndex = 0;
   setupSourceLines = [];
@@ -3676,7 +3685,7 @@ function tick() {
       }
 
       if (/^try\s*\{?\s*$/.test(l)) {
-        const consumed = handleTryBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
+        const consumed = handleTryBlock(currentSetupLineIndex, setupLines, 'setup', 'root', setupSourceLines);
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -3685,7 +3694,7 @@ function tick() {
       }
 
       if (/^for\s*\(/.test(l)) {
-        const consumed = handleForBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
+        const consumed = handleForBlock(currentSetupLineIndex, setupLines, 'setup', 'root', setupSourceLines);
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -3694,7 +3703,7 @@ function tick() {
       }
 
       if (/^while\s*\(/.test(l)) {
-        const consumed = handleWhileBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
+        const consumed = handleWhileBlock(currentSetupLineIndex, setupLines, 'setup', 'root', setupSourceLines);
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -3703,7 +3712,7 @@ function tick() {
       }
 
       if (/^if\s*\(/.test(l)) {
-         const consumed = handleIfBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
+         const consumed = handleIfBlock(currentSetupLineIndex, setupLines, 'setup', 'root', setupSourceLines);
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
           if (typeof draw === 'function') draw();
@@ -3712,7 +3721,7 @@ function tick() {
       }
 
       if (/^switch\s*\(/.test(l)) {
-        const consumed = handleSwitchBlock(currentSetupLineIndex, setupLines, 'setup', 'root');
+        const consumed = handleSwitchBlock(currentSetupLineIndex, setupLines, 'setup', 'root', setupSourceLines);
         if (consumed === -1) return;
         if (consumed > 0) {
           if (!isDelayActive) currentSetupLineIndex += consumed;
@@ -3752,7 +3761,7 @@ function tick() {
     }
 
     if (/^try\s*\{?\s*$/.test(l)) {
-    const consumed = handleTryBlock(currentLineIndex, loopLines, 'loop', 'root');
+    const consumed = handleTryBlock(currentLineIndex, loopLines, 'loop', 'root', loopSourceLines);
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -3761,7 +3770,7 @@ function tick() {
     }
 
     if (/^for\s*\(/.test(l)) {
-      const consumed = handleForBlock(currentLineIndex, loopLines, 'loop', 'root');
+      const consumed = handleForBlock(currentLineIndex, loopLines, 'loop', 'root', loopSourceLines);
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -3770,7 +3779,7 @@ function tick() {
     }
 
     if (/^while\s*\(/.test(l)) {
-       const consumed = handleWhileBlock(currentLineIndex, loopLines, 'loop', 'root');
+       const consumed = handleWhileBlock(currentLineIndex, loopLines, 'loop', 'root', loopSourceLines);
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -3779,7 +3788,7 @@ function tick() {
     }
 
     if (/^if\s*\(/.test(l)) {
-     const consumed = handleIfBlock(currentLineIndex, loopLines, 'loop', 'root');
+     const consumed = handleIfBlock(currentLineIndex, loopLines, 'loop', 'root', loopSourceLines);
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
         if (typeof draw === 'function') draw();
@@ -3788,7 +3797,7 @@ function tick() {
     }
 
     if (/^switch\s*\(/.test(l)) {
-      const consumed = handleSwitchBlock(currentLineIndex, loopLines, 'loop', 'root');
+      const consumed = handleSwitchBlock(currentLineIndex, loopLines, 'loop', 'root', loopSourceLines);
       if (consumed === -1) return;
       if (consumed > 0) {
         if (!isDelayActive) currentLineIndex += consumed;
@@ -4216,11 +4225,15 @@ function executeLineWithDelay(line, phase, sourceLine) {
     return true;
   }
 
-  const unsupportedMessage = 'unsupported statement "' + l + '" (in ' + phase + ')';
-  serialWrite('Error: ' + unsupportedMessage, true);
-  updateStatus('Unsupported statement');
-  if (Number.isInteger(sourceLine) && typeof showCodeError === 'function') {
-    showCodeError(sourceLine + 1, unsupportedMessage);
+  const unsupportedKey = phase + '|' + sourceLine + '|' + l;
+  if (!reportedUnsupportedStatements[unsupportedKey]) {
+    reportedUnsupportedStatements[unsupportedKey] = true;
+    const unsupportedMessage = 'unsupported statement "' + l + '" (in ' + phase + ')';
+    serialWrite('Error: ' + unsupportedMessage, true);
+    updateStatus('Unsupported statement');
+    if (Number.isInteger(sourceLine) && typeof showCodeError === 'function') {
+      showCodeError(sourceLine + 1, unsupportedMessage);
+    }
   }
   return true;
 }
