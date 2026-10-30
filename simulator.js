@@ -2840,10 +2840,39 @@ function extractPythonMainLoop(lines) {
   };
 }
 
-function inlinePythonFunction(fn, state, targetVar) {
-  if (!fn || fn.args.length > 0) return null;
+function substitutePythonFunctionArgs(text, fn, argTokens, state) {
+  var replacements = {};
+  fn.args.forEach(function(param, index) {
+    var name = String(param || '').trim();
+    if (!name) return;
+    var replacement = index < argTokens.length
+      ? translatePythonExpression(argTokens[index], state)
+      : '0';
+    replacements[name] = /^[A-Za-z_][\w.]*$/.test(replacement) ||
+      /^-?\d+(?:\.\d+)?$/.test(replacement) ||
+      /^(['"]).*\1$/.test(replacement)
+      ? replacement
+      : '(' + replacement + ')';
+  });
+  return transformOutsideStrings(text, function(fragment) {
+    return fragment.replace(/\b[A-Za-z_]\w*\b/g, function(word) {
+      return replacements[word] === undefined ? word : replacements[word];
+    });
+  });
+}
 
-  var body = fn.body.slice();
+function inlinePythonFunction(fn, state, targetVar, argTokens) {
+  if (!fn) return null;
+  argTokens = argTokens || [];
+  if (argTokens.length !== fn.args.filter(function(arg) { return String(arg || '').trim(); }).length) return null;
+
+  var body = fn.body.map(function(line) {
+    return {
+      indent: line.indent,
+      line: line.line,
+      text: substitutePythonFunctionArgs(line.text, fn, argTokens, state)
+    };
+  });
   var returnExpr = null;
 
   if (body.length > 0) {
@@ -2982,12 +3011,27 @@ function translatePythonStatement(text, state, options) {
 
   var fnAssign = text.match(/^(\w+)\s*=\s*(\w+)\s*\(\s*\)\s*$/);
   if (fnAssign && state.functions[fnAssign[2]]) {
-    return inlinePythonFunction(state.functions[fnAssign[2]], state, fnAssign[1]);
+    return inlinePythonFunction(state.functions[fnAssign[2]], state, fnAssign[1], []);
   }
 
-  var fnCall = text.match(/^(\w+)\s*\(\s*\)\s*$/);
+  var fnAssignArgs = text.match(/^(\w+)\s*=\s*(\w+)\s*\((.*)\)\s*$/);
+  if (fnAssignArgs && state.functions[fnAssignArgs[2]]) {
+    return inlinePythonFunction(
+      state.functions[fnAssignArgs[2]],
+      state,
+      fnAssignArgs[1],
+      splitCallArguments(fnAssignArgs[3])
+    );
+  }
+
+  var fnCall = text.match(/^(\w+)\s*\((.*)\)\s*$/);
   if (fnCall && state.functions[fnCall[1]]) {
-    return inlinePythonFunction(state.functions[fnCall[1]], state, null);
+    return inlinePythonFunction(
+      state.functions[fnCall[1]],
+      state,
+      null,
+      splitCallArguments(fnCall[2])
+    );
   }
 
   if (/^return\b/.test(text)) {
