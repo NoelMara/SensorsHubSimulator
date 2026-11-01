@@ -3390,7 +3390,7 @@ function validateSourceCode(sourceCode, mode) {
     let depth = 0;
     let outsideBlockComment = false;
     const executableAtTopLevel = /^(Serial\.|digitalWrite\s*\(|digitalRead\s*\(|analogWrite\s*\(|delay\s*\(|pinMode\s*\()/;
-    const allowedTopLevel = /^(#|\/\/|\/\*|\*\/|void\s+\w+\s*\(|(?:const\s+)?(?:int|float|long|double|bool|char|byte|String|unsigned)\b|[A-Za-z_]\w*(?:::\w+)*\s+\w+\s*\()/;
+    const allowedTopLevel = /^(#|\/\/|\/\*|\*\/|void\s+\w+\s*\(|(?:const\s+)?(?:int|float|long|double|bool|char|byte|String|unsigned)\b|(?:Servo|ESP32Servo)\s+\w+\s*;|[A-Za-z_]\w*(?:::\w+)*\s+\w+\s*\()/;
     for (let lineIndex = 0; lineIndex < sourceLines.length; lineIndex++) {
       const line = sourceLines[lineIndex];
       let codeLine = '';

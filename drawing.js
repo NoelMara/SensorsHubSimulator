@@ -1138,10 +1138,6 @@ function drawPico(c) {
     ctx.fillRect(x + 72 + pad * 8, y + 144, 5, 8);
   }
 
-  ctx.fillStyle = '#f8fafc';
-  ctx.font = 'bold 8px JetBrains Mono, monospace';
-  ctx.fillText('DEBUG', x + w / 2, y + h - 45);
-
   c.pins.forEach(function(p) {
     p.x = p.side === 'left' ? x : x + w;
     p.y = y + 55 + p.index * 19;

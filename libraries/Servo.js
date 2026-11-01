@@ -64,14 +64,12 @@ class ServoLibrary {
   attach(pin) {
     this._pin = typeof pin === 'number' ? pin : parseInt(pin, 10) || 0;
     this._component = this._findComp();
-    console.log('[Servo] attach(pin=' + this._pin + ') — comp:', this._component ? this._component.id : 'not found');
   }
 
   write(angle) {
     this._angle = Math.min(180, Math.max(0, Number(angle) || 0));
     if (!this._findExactComp()) this._throwTryWiringError();
     this._component = this._findComp(); // re-query every write
-    console.log('[Servo] write(' + this._angle + '°) — comp:', this._component ? this._component.id : 'not found');
 
     if (this._component && this._component.state) {
       this._component.state.angle = this._angle;
